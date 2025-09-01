@@ -3,19 +3,22 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
+const cors = require('cors');
 
 const prompts = require('./prompts_ge.json');
 const answers = require('./answers_ge.json');
 
 const PORT = 3001;
 const app = express();
+app.use(cors());
 app.use(express.json());
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
 const RECONNECT_TIMEOUT_MS = 10000;
 const gameRooms = {};
-
+const roomTimeouts = {};
+const originalSettingsState = {};
 
 // Helper function to shuffle an array
 function shuffle(array) {
@@ -46,41 +49,54 @@ function terminateGame(roomCode, reason) {
   });
 }
 
-function startNewRound(roomCode, systemMessage) {
+function startNewRound(roomCode, systemMessage, shouldRotateCzar = true, isReset = false) {
   const room = gameRooms[roomCode];
   if (!room) return;
 
-  console.log(`Starting new round for room ${roomCode}. Reason: ${systemMessage}`);
-  
-  // Announce why the round is starting/resetting
+  console.log(`Starting new round. Rotate: ${shouldRotateCzar}, Is Reset: ${isReset}`);
   io.to(roomCode).emit('newMessage', { type: 'system', message: systemMessage });
 
-  // Reset submissions from the previous round
+  // --- FIX #1: Only remove submitted cards if it's NOT a reset ---
+  if (!isReset) {
+    room.submissions.forEach(submission => {
+      const player = room.players.find(p => p.playerId === submission.playerId);
+      if (player) {
+        player.hand = player.hand.filter(handCard =>
+          !submission.cards.some(submittedCard => submittedCard.id === handCard.id)
+        );
+      }
+    });
+  }
+
+  // Top-up all hands
+  room.players.forEach(player => {
+    const cardsToDraw = room.settings.handSize - player.hand.length;
+    if (cardsToDraw > 0) {
+      if (room.answerDeck.length < cardsToDraw) room.answerDeck.push(...shuffle([...answers]));
+      const newCards = room.answerDeck.splice(0, cardsToDraw);
+      player.hand.push(...newCards);
+    }
+  });
+
+  // Reset round state
   room.submissions = [];
   room.revealedSubmissions = [];
   room.phase = 'submitting';
 
-  // First, deal a full hand to any spectators who are joining the game
-  room.players.forEach(player => {
-    if (player.hand.length === 0) {
-      if (room.answerDeck.length < room.settings.handSize) {
-        room.answerDeck.push(...shuffle([...answers]));
-      }
-      player.hand = room.answerDeck.splice(0, room.settings.handSize);
-      io.to(roomCode).emit('newMessage', { type: 'system', message: `${player.username} has joined the game for this round!` });
-    }
-  });
+  // --- FIX #2: Force a new Czar if the old one is gone ---
+  const czarStillExists = room.players.some(p => p.playerId === room.currentCzar.playerId);
+  if (shouldRotateCzar || !czarStillExists) {
+    const currentCzarIndex = room.players.findIndex(p => p.playerId === room.currentCzar.playerId);
+    const nextCzarIndex = (currentCzarIndex >= 0 ? currentCzarIndex + 1 : 0) % room.players.length;
+    room.currentCzar = room.players[nextCzarIndex];
+    console.log(`New Czar assigned: ${room.currentCzar.username}`);
+  }
 
-  // Rotate the Czar to the next player
-  const currentCzarIndex = room.players.findIndex(p => p.playerId === room.currentCzar.playerId);
-  const nextCzarIndex = (currentCzarIndex + 1) % room.players.length;
-  room.currentCzar = room.players[nextCzarIndex];
-  
-  // Deal a new prompt card
+  // Deal new prompt
   if (room.promptDeck.length === 0) room.promptDeck = shuffle([...prompts]);
   room.currentPrompt = room.promptDeck.pop();
 
-  // Finally, emit the 'newRound' event. The client already knows how to handle this.
+  // Notify clients
   io.to(roomCode).emit('newRound', { ...room, roomCode: roomCode });
 }
 
@@ -144,25 +160,20 @@ io.on('connection', (socket) => {
     const { roomCode, newSettings } = data;
     const room = gameRooms[roomCode];
 
-    if (room && room.currentCzar.socketId === socket.id) {
-      const { pointsToWin, maxPlayers, handSize } = newSettings;
-      if (
-        (pointsToWin && (pointsToWin < 3 || pointsToWin > 20)) ||
-        (maxPlayers && (maxPlayers < 3 || maxPlayers > 12)) ||
-        (handSize && (handSize < 5 || handSize > 15)) ||
-        (maxPlayers && maxPlayers < room.players.length)
-      ) {
-        console.log(`[SERVER] Rejected invalid settings for room ${roomCode}`);
-        return;
+    if (room && room.players[0].socketId === socket.id) {
+      if (!roomTimeouts[roomCode]) {
+        originalSettingsState[roomCode] = { ...room.settings };
       }
 
-      if (room.settingsChangeTimeout) {
-        clearTimeout(room.settingsChangeTimeout)
-      }
+      room.settings = { ...room.settings, ...newSettings };
+      io.to(roomCode).emit('settingsUpdated', { settings: room.settings });
 
-      room.settingsChangeTimeout = setTimeout(() => {
-        let changeMessage = 'Owner has updated the game settings.';
-        const oldSettings = room.settings;
+      clearTimeout(roomTimeouts[roomCode]);
+
+      roomTimeouts[roomCode] = setTimeout(() => {
+        const originalState = originalSettingsState[roomCode];
+        const finalState = room.settings;
+        const changes = []; // An array to hold all the summary messages
 
         const settingNames = {
           pointsToWin: 'Points to Win',
@@ -170,26 +181,25 @@ io.on('connection', (socket) => {
           handSize: 'Cards in Hand'
         };
 
-        for (const key in newSettings) {
-          if (newSettings[key] !== oldSettings[key]) {
+        for (const key in finalState) {
+          if (originalState[key] !== finalState[key]) {
             const friendlyName = settingNames[key] || key;
-            changeMessage = `Owner changed ${friendlyName} to ${newSettings[key]}.`;
-            break;
+            changes.push(`${friendlyName} from ${originalState[key]} to ${finalState[key]}`);
           }
         }
 
-        io.to(roomCode).emit('newMessage', {
-          type: 'system',
-          message: changeMessage
-        });
+        if (changes.length > 0) {
+          const fullMessage = `Owner updated settings: ${changes.join(', ')}.`;
+          io.to(roomCode).emit('newMessage', {
+            type: 'system',
+            message: fullMessage
+          });
+        }
 
-        room.settings = newSettings;
-        io.to(roomCode).emit('settingsUpdated', { settings: room.settings });
+        delete roomTimeouts[roomCode];
+        delete originalSettingsState[roomCode];
 
-      }, 2000);
-
-      room.settings = newSettings;
-      io.to(roomCode).emit('settingsUpdated', { settings: room.settings });
+      }, 2000); // 2-second delay
     }
   });
 
@@ -259,40 +269,43 @@ io.on('connection', (socket) => {
   });
 
   socket.on('kickPlayer', (data) => {
-  const { roomCode, playerIdToKick } = data;
-  const room = gameRooms[roomCode];
-  // Only the owner (player 0) can kick
-  if (room && room.players[0].socketId === socket.id && playerIdToKick !== room.players[0].playerId) {
-    const playerIndex = room.players.findIndex(p => p.playerId === playerIdToKick);
-    
-    if (playerIndex > -1) {
-      const kickedPlayer = room.players.splice(playerIndex, 1)[0];
-      const wasCzar = kickedPlayer.playerId === room.currentCzar.playerId;
+    const { roomCode, playerIdToKick } = data;
+    const room = gameRooms[roomCode];
+    if (room && room.players[0].socketId === socket.id && playerIdToKick !== room.players[0].playerId) {
+      const playerIndex = room.players.findIndex(p => p.playerId === playerIdToKick);
 
-      // Tell the kicked player they were kicked
-      const kickedSocket = io.sockets.sockets.get(kickedPlayer.socketId);
-      if (kickedSocket) {
-        kickedSocket.emit('youWereKicked');
-        kickedSocket.leave(roomCode);
-      }
+      if (playerIndex > -1) {
+        const wasCzar = room.players[playerIndex].playerId === room.currentCzar.playerId;
+        const kickedPlayer = room.players.splice(playerIndex, 1)[0];
 
-      io.to(roomCode).emit('newMessage', { type: 'system', message: `${room.players[0].username} kicked ${kickedPlayer.username}.` });
+        const kickedSocket = io.sockets.sockets.get(kickedPlayer.socketId);
+        if (kickedSocket) {
+          kickedSocket.emit('youWereKicked');
+          kickedSocket.leave(roomCode);
+        }
+        io.to(roomCode).emit('newMessage', { type: 'system', message: `${room.players[0].username} kicked ${kickedPlayer.username}.` });
 
-      // If the player count drops below 3, terminate the game.
-      if (room.gameState === 'in-game' && room.players.length < 3) {
-        terminateGame(roomCode, 'Not enough players to continue.');
-      } 
-      // If the Czar was kicked, we must reset the round.
-      else if (room.gameState === 'in-game' && wasCzar) {
-        startNewRound(roomCode, "The Czar was kicked! Resetting the round...");
-      }
-      // If a regular player was kicked, we can just update the player list.
-      else {
-        io.to(roomCode).emit('playerKicked', { players: room.players, submissions: room.submissions });
+        if (room.gameState === 'in-game' && room.players.length < 3) {
+          terminateGame(roomCode, 'Not enough players to continue.');
+        }
+        else if (room.gameState === 'in-game' && wasCzar) {
+          // --- THIS IS THE NEW LOGIC ---
+          // The Czar was kicked. Manually assign the next player in line.
+          // The new Czar is the player who took the kicked Czar's spot in the array.
+          const newCzarIndex = playerIndex % room.players.length;
+          room.currentCzar = room.players[newCzarIndex];
+          // Now call startNewRound, telling it NOT to rotate since we just set the new Czar.
+          startNewRound(roomCode, "The Czar was kicked! Resetting the round...", false, true);
+        }
+        else if (room.gameState === 'in-game') {
+          startNewRound(roomCode, "A player was kicked. Resetting the round...", false, true);
+        }
+        else { // This handles kicks from the lobby
+          io.to(roomCode).emit('playerKicked', { players: room.players });
+        }
       }
     }
-  }
-});
+  });
 
   socket.on('startGame', (data) => {
     const { roomCode } = data;
@@ -390,94 +403,61 @@ io.on('connection', (socket) => {
   socket.on('selectWinner', (data) => {
     const { roomCode, winningSubmission } = data;
     const room = gameRooms[roomCode];
-    if (room && room.currentCzar.socketId === socket.id) {
-      const winner = room.players.find(p => p.playerId === winningSubmission.playerId);
 
-      if (winner) {
-        winner.score += 1;
-        io.to(roomCode).emit('newMessage', {
-          type: 'system',
-          message: `${room.currentCzar.username} chose ${winner.username}'s card!`
-        });
-      }
+    // Permission check
+    if (!room || room.currentCzar.socketId !== socket.id || room.phase !== 'judging') {
+      return;
+    }
 
-      const winningCardText = winningSubmission.cards[0].type === 'image'
-        ? winningSubmission.cards[0].content
-        : winningSubmission.cards.map(c => c.text).join(' | ');
+    const winner = room.players.find(p => p.playerId === winningSubmission.playerId);
 
-      io.to(roomCode).emit('roundOver', {
-        winner,
-        winningCards: winningSubmission.cards,
-        winningCardText: winningCardText // We now send a clean text version
+    if (winner) {
+      // 1. Increment the score immediately. The 'players' array is now up-to-date.
+      winner.score += 1;
+      io.to(roomCode).emit('newMessage', {
+        type: 'system',
+        message: `${room.currentCzar.username} chose ${winner.username}'s card!`
       });
+    }
 
-      const WINNING_SCORE = room.settings.pointsToWin;
-      if (winner && winner.score >= WINNING_SCORE) {
-        console.log(`${winner.username} wins the game!`);
-        io.to(roomCode).emit('gameOver', { winner });
-        setTimeout(() => {
-          const roomToReset = gameRooms[roomCode];
-          if (roomToReset) {
-            console.log(`Resetting room ${roomCode} back to lobby.`);
-            roomToReset.gameState = 'lobby';
-            roomToReset.submissions = [];
-            roomToReset.revealedSubmissions = [];
-            roomToReset.answerDeck = [];
-            roomToReset.promptDeck = [];
-            roomToReset.currentPrompt = null;
-            roomToReset.phase = null;
-            roomToReset.players.forEach(p => { p.score = 0; p.hand = []; });
-            roomToReset.currentCzar = roomToReset.players[0];
-            io.to(roomCode).emit('backToLobby', { ...roomToReset, roomCode: roomCode });
-          }
-        }, 5000);
-        return;
-      }
+    // 2. Check if this score increment ends the game.
+    const isGameEnding = winner && winner.score >= room.settings.pointsToWin;
 
+    // 3. Emit ONE consolidated 'roundOver' event with all the correct, fresh data.
+    io.to(roomCode).emit('roundOver', {
+      winner,
+      winningCards: winningSubmission.cards,
+      players: room.players, // Always sends the updated scores
+      isGameOver: isGameEnding
+    });
+
+    // 4. Handle what happens next based on whether the game is over.
+    if (isGameEnding) {
+      // ----- GAME IS OVER -----
+      console.log(`${winner.username} wins the game in room ${roomCode}!`);
+
+      // After 5s (for the RoundWinner overlay), tell clients to show the GameOver screen.
       setTimeout(() => {
-        room.players.forEach(player => {
-          if (player.hand.length === 0) {
-            // If the deck is low, reshuffle it before dealing
-            if (room.answerDeck.length < room.settings.handSize) {
-              room.answerDeck.push(...shuffle([...answers]));
-            }
+        io.to(roomCode).emit('gameOver', { winner });
+      }, 5000);
 
-            // Deal a full hand to the new player
-            player.hand = room.answerDeck.splice(0, room.settings.handSize);
-            console.log(`Dealt a new hand to former spectator: ${player.username}`);
+      // After 15s total, send everyone back to the lobby.
+      setTimeout(() => {
+        const roomToReset = gameRooms[roomCode];
+        if (roomToReset) {
+          console.log(`Auto-resetting room ${roomCode} back to lobby.`);
+          roomToReset.gameState = 'lobby';
+          roomToReset.players.forEach(p => { p.score = 0; p.hand = []; });
+          roomToReset.currentCzar = roomToReset.players[0];
+          io.to(roomCode).emit('backToLobby', { ...roomToReset, roomCode: roomCode });
+        }
+      }, 15000);
 
-            // Announce in chat that they've joined the game
-            io.to(roomCode).emit('newMessage', {
-              type: 'system',
-              message: `${player.username} has joined the game for the next round!`
-            });
-          }
-        });
-
-        room.submissions.forEach(submission => {
-          const player = room.players.find(p => p.playerId === submission.playerId);
-          if (player) {
-            player.hand = player.hand.filter(handCard => !submission.cards.some(submittedCard => submittedCard.id === handCard.id));
-          }
-        });
-        room.players.forEach(player => {
-          if (player.playerId !== room.currentCzar.playerId) {
-            const cardsToDraw = room.settings.handSize - player.hand.length;
-            if (room.answerDeck.length < cardsToDraw) room.answerDeck = shuffle([...answers]);
-            if (room.answerDeck.length > 0) {
-              const newCards = room.answerDeck.splice(0, cardsToDraw);
-              player.hand.push(...newCards);
-            }
-          }
-        });
-        room.submissions = [];
-        room.revealedSubmissions = [];
-        room.phase = 'submitting';
-        const currentCzarIndex = room.players.findIndex(p => p.playerId === room.currentCzar.playerId);
-        room.currentCzar = room.players[(currentCzarIndex + 1) % room.players.length];
-        if (room.promptDeck.length === 0) room.promptDeck = shuffle([...prompts]);
-        room.currentPrompt = room.promptDeck.pop();
-        io.to(roomCode).emit('newRound', { ...room, roomCode: roomCode });
+    } else {
+      // ----- GAME IS NOT OVER -----
+      // After 5s, start the next round normally.
+      setTimeout(() => {
+        startNewRound(roomCode, "Starting the next round...", true, false);
       }, 5000);
     }
   });
@@ -539,25 +519,34 @@ io.on('connection', (socket) => {
   });
 
   socket.on('leaveGame', (data) => {
-  const { roomCode } = data;
-  const room = gameRooms[roomCode];
-  if (!room || room.gameState !== 'in-game') return;
+    const { roomCode } = data;
+    const room = gameRooms[roomCode];
+    if (!room || room.gameState !== 'in-game') return;
 
-  const playerIndex = room.players.findIndex(p => p.socketId === socket.id);
-  if (playerIndex === -1) return;
+    const playerIndex = room.players.findIndex(p => p.socketId === socket.id);
+    if (playerIndex > -1) {
+      const wasCzar = room.players[playerIndex].playerId === room.currentCzar.playerId;
+      room.players.splice(playerIndex, 1);
 
-  room.players.splice(playerIndex, 1)[0];
-  socket.leave(roomCode);
-  socket.emit('youLeftLobby');
+      socket.leave(roomCode);
+      socket.emit('youLeftLobby');
 
-  // Check player count first
-  if (room.players.length < 3) {
-    terminateGame(roomCode, 'Not enough players to continue.');
-  } else {
-    // If enough players remain, just start a new round.
-    startNewRound(roomCode, "A player left the game. Resetting the round...");
-  }
-});
+      if (room.players.length < 3) {
+        terminateGame(roomCode, 'Not enough players to continue.');
+      }
+      else if (wasCzar) {
+        // --- THIS IS THE NEW LOGIC ---
+        // The Czar left. Manually assign the next player in line.
+        const newCzarIndex = playerIndex % room.players.length;
+        room.currentCzar = room.players[newCzarIndex];
+        startNewRound(roomCode, "The Czar left the game. Resetting the round...", false, true);
+      }
+      else {
+        // A regular player left.
+        startNewRound(roomCode, "A player left the game. Resetting the round...", false, true);
+      }
+    }
+  });
 
   socket.on('sendMessage', (data) => {
     const { roomCode, message, username } = data;

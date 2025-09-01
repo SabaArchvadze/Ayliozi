@@ -135,7 +135,7 @@ export function Lobby(props) {
 
                   <li key={player.playerId}>
 
-                    <span>{player.username}</span>
+                    <span className='player-name'>{player.username}</span>
 
                     {isOwner && myId !== player.socketId && (
 

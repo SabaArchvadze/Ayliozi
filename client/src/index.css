@@ -3,10 +3,10 @@
   --background-color: #161616;
   --surface-color: #272727;
   --text-color: #f0f0f0;
-  --accent-color: #1f69ff;
+  --accent-color: #8963BA;
   --border-color: #3a3939;
   --icon-color: #959494;
-  --hover-color: rgb(37, 37, 161);
+  --hover-color: #6d3c88;
 }
 
 * {
@@ -43,7 +43,7 @@ body {
 .game-layout {
   display: flex;
   gap: 20px;
-  align-items: center;
+  align-items: flex-start;
   text-align: center;
 }
 
@@ -82,13 +82,59 @@ button {
   border-color: var(--accent-color);
   color: white;
   font-weight: 500;
+  border: none;
   transition: transform 0.2s, background-color 0.2s;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+  transition: color 0.4s ease-in-out;
 }
 
-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  background-color: var(--hover-color)
+button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, #8963BA, #6d3c88, #8963BA);
+  /* Your new colors! */
+  background-size: 250% 250%;
+  transition: opacity 0.4s ease-in-out;
+  z-index: -1;
+  opacity: 0;
+  /* Hidden by default */
 }
+
+button:hover::before {
+  opacity: 1;
+  /* Show the gradient on hover */
+  animation: wave 3s ease infinite;
+  /* Apply the animation */
+}
+
+button:hover {
+  color: white;
+  /* Make text readable on the darker gradient */
+  border: none;
+  /* Hide the border to let the gradient shine */
+}
+
+/* This is the animation that moves the gradient */
+@keyframes wave {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 
 button:disabled {
   background-color: #555;
@@ -127,14 +173,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   text-align: center;
-  transition: all 0.2s ease-in-out;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-  border: 3px solid transparent;
-}
-
-.card.selected {
-  border-color: var(--accent-color);
-  transform: translateY(-10px) scale(1.05);
 }
 
 .prompt-card {
@@ -271,8 +310,8 @@ button:disabled {
 .scoreboard li {
   display: grid;
   /* New 5-column layout: Rank | Status | Name | Kick | Score */
-  grid-template-columns: 30px 30px 1fr auto 30px;
-  gap: 10px;
+  grid-template-columns: 30px 30px 1fr 30px;
+  gap: 2px;
   align-items: center;
   padding: 5px 0;
   font-size: 1.1em;
@@ -301,6 +340,15 @@ button:disabled {
   /* Ensure name is left-aligned */
 }
 
+.player-name-ingame {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+  text-align: left;
+  /* Ensure name is left-aligned */
+}
+
 .player-status-icons {
   /* A container for the status icons to keep them in one column */
   display: flex;
@@ -312,7 +360,7 @@ button:disabled {
 
 .player-score {
   font-weight: 700;
-  text-align: right;
+  text-align: center;
   /* Ensure score is right-aligned in its column */
 }
 
@@ -1083,6 +1131,156 @@ button.card.image-card img {
   align-self: flex-start;
 }
 
+.open-kick-modal-button {
+  position: fixed;
+  /* Keep it on screen */
+  bottom: 15px;
+  right: 15px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  font-size: 1.3em;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  /* Make sure it's above other elements */
+}
+
+.kick-modal {
+  width: 90%;
+  max-width: 350px;
+}
+
+.kick-player-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.kick-player-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.2em;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.kick-player-list li:last-child {
+  border-bottom: none;
+}
+
+.kick-button-in-modal {
+  background: none;
+  border: none;
+  color: white;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  font-size: 0.8em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spotlight-svg {
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+  height: 169%;
+  width: 138%;
+  opacity: 0;
+  animation: spotlight 2s ease-out forwards;
+}
+
+@keyframes spotlight {
+  0% {
+    opacity: 0;
+    transform: translate(-72%, -62%) scale(0.5);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(-40%, -40%) scale(1);
+  }
+}
+
+.spotlight-container {
+  position: relative;
+  /* This is crucial for positioning the spotlight */
+  /* This hides the parts of the spotlight that go off-screen */
+  background: radial-gradient(circle at center, transparent 40%, black 80%);
+  height: 100vh;
+}
+
+.home-screen>.title-image,
+.home-screen>.home-container,
+.background-card {
+  opacity: 1;
+}
+
+.particle-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  opacity: 0;
+  /* Start invisible */
+  animation: fade-in-particles 2s ease-in 0.5s forwards;
+  /* Fade in after a 0.5s delay */
+}
+
+/* This is a new keyframe for the container's fade-in effect */
+@keyframes fade-in-particles {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* This rule is now simpler */
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  animation: float-particle infinite;
+}
+
+/* The floating animation now starts and ends with zero opacity to help with the fade-in */
+@keyframes float-particle {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+
+  25% {
+    opacity: 1;
+  }
+
+  50% {
+    transform: translate(20px, -40px);
+  }
+
+  75% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+}
+
 /* =================================== */
 /* ======== RESPONSIVE STYLES ======== */
 /* =================================== */
@@ -1289,9 +1487,10 @@ button.card.image-card img {
 
   .game-sidebar {
     flex-grow: 1;
-    min-height: 0;
+    min-height: 0px;
     gap: 0;
     width: 100%;
+    padding: 5px;
   }
 
   /* 2. Card Fixes: Text overflow and sizing */
@@ -1323,6 +1522,7 @@ button.card.image-card img {
     align-items: center;
     justify-content: center;
     width: 100%;
+    overflow-x: hidden;
   }
 
   .hand-pagination .card-container {
@@ -1381,6 +1581,7 @@ button.card.image-card img {
     /* Ensures it stretches the full width */
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
+    position: relative;
   }
 
   .sidebar-tab {
@@ -1388,24 +1589,31 @@ button.card.image-card img {
     padding: 12px 5px;
     background: transparent;
     border: none;
-    border-bottom: 3px solid transparent;
     color: var(--icon-color);
     font-size: 1em;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
+    position: relative;
   }
 
-  .sidebar-tab.active {
-    color: var(--text-color);
-    border-bottom-color: var(--accent-color);
+  .active-tab-indicator {
+    position: absolute;
+    bottom: -1px;
+    /* Sits right on top of the parent's bottom border */
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--accent-color);
+    border-radius: 2px;
   }
 
   .sidebar-content {
     padding-top: 5px;
     flex-grow: 1;
     min-height: 0;
+    position: relative;
   }
 
   .sidebar-content .scoreboard,
@@ -1413,6 +1621,7 @@ button.card.image-card img {
     background: transparent;
     border: none;
     padding: 0;
+    height: 200px;
   }
 
   .sidebar-content .in-game-chat {
@@ -1481,15 +1690,18 @@ button.card.image-card img {
     text-align: right;
   }
 
+  .player-name {
+    max-width: 50px;
+  }
+
   .player-status-icons {
     display: flex;
     justify-content: center;
     align-items: center;
   }
 
-  .score-separator {
-    height: 1px;
-    background-color: var(--border-color);
+  .line-separator {
+    border-top: 1px dashed var(--border-color);
     margin: 8px 0;
   }
 
@@ -1497,5 +1709,9 @@ button.card.image-card img {
     justify-content: center;
   }
 
-  
+  .open-kick-modal-button {
+    width: 30px;
+    height: 30px;
+    font-size: 1em;
+  }
 }

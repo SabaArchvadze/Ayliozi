@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { socket } from '../socket';
 import { VscReport } from "react-icons/vsc";
 import { BackgroundCards } from './BackgroundCards'; // Import our new component
+import { Spotlight } from './Spotlight';
+import { motion } from 'framer-motion';
+import { Particles } from './Particles';
 
 export function Home({ error, setError }) {
   const [username, setUsername] = useState('');
@@ -58,13 +61,48 @@ export function Home({ error, setError }) {
     }
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.3, // This will animate children one after the other
+      },
+    },
+  };
+
+  const titleVariants = {
+    hidden: { y: -50, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } },
+  };
+
+  const formVariants = {
+    hidden: { y: 50, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } },
+  };
+
   return (
-    <div className="home-screen">
-      <BackgroundCards cardCount={15} /> {/* It's now just one line! */}
+    <motion.div className="home-screen spotlight-container"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <Particles count={75} />
+      <Spotlight
+        className="-top-40 left-0"
+        fill="white"
+      />
 
-      <img src="/ayliozi.webp" alt="Game Title" className="title-image" />
+      <BackgroundCards cardCount={15} variants={containerVariants} /> {/* It's now just one line! */}
 
-      <div className="home-container">
+      <motion.img
+        src="/ayliozi.webp"
+        alt="Game Title"
+        className="title-image"
+        variants={titleVariants}
+      />
+
+      <motion.div className="home-container" variants={formVariants}>
         <input
           type="text"
           placeholder="შენი სახელი"
@@ -89,7 +127,7 @@ export function Home({ error, setError }) {
             <button onClick={() => validateAndProceed('create')}>შექმენი</button>
           </div>
         </div>
-      </div>
+      </motion.div>
       <p className="error-message">{error}</p>
 
       <button className="report-button" onClick={() => setShowReportModal(true)} title="Report a Bug">
@@ -115,6 +153,6 @@ export function Home({ error, setError }) {
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

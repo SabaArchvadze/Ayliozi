@@ -5,6 +5,7 @@ import { Home } from './components/Home';
 import { Lobby } from './components/Lobby';
 import { Game } from './components/Game';
 import { GameOver } from './components/GameOver';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function App() {
   const [view, setView] = useState('home');
@@ -25,6 +26,7 @@ export default function App() {
       socket.emit('reconnectPlayer', session);
     } else {
       setIsReconnecting(false);
+      setView('home')
     }
   }, []);
 
@@ -212,22 +214,76 @@ export default function App() {
     };
   }, []);
 
-  if (view === 'home') {
-    return <Home error={error} setError={setError} />;
+  if (isReconnecting) {
+    return (
+      <div className="app-container" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh'
+      }}>
+        <div>Reconnecting...</div>
+      </div>
+    );
   }
-  if (view === 'lobby' && gameData) {
-    return <Lobby roomData={gameData} myId={myId} messages={messages} />;
-  }
-  if (view === 'game' && gameData) {
-    return <Game roomData={gameData} myId={myId} roundWinnerInfo={roundWinnerInfo} firstCardPlayed={firstCardPlayed} notification={notification} messages={messages} error={error} setError={setError} />;
-  }
-  if (view === 'gameover') {
-    return <GameOver
-      finalWinner={finalWinner}
-      players={gameData.players}
-      roomCode={gameData.roomCode}
-      myId={myId}
-    />;
-  }
-  return <div className="app-container"><div>Connecting...</div></div>;
+
+  return (
+    <AnimatePresence mode="wait">
+      {/* The "key" is crucial for AnimatePresence to track which component is on screen */}
+      
+      {view === 'home' && (
+        <motion.div
+          key="home"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Home error={error} setError={setError} />
+        </motion.div>
+      )}
+
+      {view === 'lobby' && gameData && (
+        <motion.div
+          key="lobby"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Lobby roomData={gameData} myId={myId} messages={messages} />
+        </motion.div>
+      )}
+
+      {/* --- ADDED ANIMATIONS FOR GAME AND GAMEOVER --- */}
+      {view === 'game' && gameData && (
+        <motion.div
+          key="game"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Game roomData={gameData} myId={myId} roundWinnerInfo={roundWinnerInfo} firstCardPlayed={firstCardPlayed} notification={notification} messages={messages} error={error} setError={setError} />
+        </motion.div>
+      )}
+
+      {view === 'gameover' && (
+        <motion.div
+          key="gameover"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ duration: 0.5 }}
+        >
+          <GameOver
+            finalWinner={finalWinner}
+            players={gameData.players}
+            roomCode={gameData.roomCode}
+            myId={myId}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }

@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { socket } from '../socket';
-import { FaCrown, FaCheck, FaTimes, FaTrophy, FaUsers, FaLayerGroup } from 'react-icons/fa';
+import { FaCrown, FaCheck, FaTimes, FaTrophy, FaUsers, FaLayerGroup, FaUserSlash } from 'react-icons/fa';
 import { IoChatbubblesSharp, IoInformationCircleSharp, IoArrowBack, IoArrowForward, IoArrowBackCircle, IoArrowForwardCircle } from "react-icons/io5";
 import { CountdownTimer } from './CountdownTimer';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
 function Scoreboard({ players, czarId, submissions = [], isOwner, myId, onKickPlayer, isMobile }) {
@@ -34,30 +35,56 @@ function Scoreboard({ players, czarId, submissions = [], isOwner, myId, onKickPl
               </div>
               <span className="player-name" title={p.username}>{p.username}</span>
               <span className="player-score">{p.score}</span>
-              <div className="kick-button-container">
-                {isOwner && myId !== p.socketId && (
-                  <button className="kick-button" onClick={() => onKickPlayer(p.playerId)} title="Kick Player"><FaTimes /></button>
-                )}
-              </div>
             </li>
           );
         })}
       </ul>
+
+      {isMobile && amInTop && players.length > topCount && (
+        <div style={{ textAlign: 'center', color: '#888', letterSpacing: '3px' }}>
+          ...
+        </div>
+      )}
       {!amInTop && me && (
         <>
-          <div className="score-separator"></div>
+          <div className="line-separator"></div>
           <ul className="your-score">
             <li>
               <span className="player-rank">{myRank}.</span>
               {/* Empty div for status icon alignment */}
               <div className="player-status-icons"></div>
-              <span className="player-name" title={me.username}>{me.username}</span>
-              <div className="kick-button-container"></div>
+              <span className="player-name-ingame" title={me.username}>{me.username}</span>
               <span className="player-score">{me.score}</span>
             </li>
           </ul>
         </>
       )}
+    </div>
+  );
+}
+
+function KickPlayerModal({ players, ownerId, onKick, onClose }) {
+  return (
+    <div className="confirmation-overlay">
+      <div className="confirmation-box kick-modal">
+        <h3>Kick a Player</h3>
+        <ul className="kick-player-list">
+          {players.map(player => (
+            // Only show players who are NOT the owner
+            player.playerId !== ownerId && (
+              <li key={player.playerId}>
+                <span>{player.username}</span>
+                <button className="kick-button-in-modal" onClick={() => onKick(player.playerId)}>
+                  <FaTimes />
+                </button>
+              </li>
+            )
+          ))}
+        </ul>
+        <div className="confirmation-buttons">
+          <button onClick={onClose}>Back</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -161,7 +188,7 @@ function GameInfoDisplay({ settings, roomCode, owner }) {
     <div className="game-info-display">
       <h4>ოთახის კოდი</h4>
       <p className="room-code">{roomCode}</p>
-      <hr />
+      <div className="line-separator"></div>
       <div className="setting-item">
         <span><FaCrown /> Owner</span>
         <span>{owner.username}</span>
@@ -204,6 +231,7 @@ export function Game(props) {
   const [isValidating, setIsValidating] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
   const [activeTab, setActiveTab] = useState('scores');
+  const [showKickModal, setShowKickModal] = useState(false);
 
   useEffect(() => {
     setLocalHand(me?.hand || []);
@@ -223,6 +251,8 @@ export function Game(props) {
   const handleConfirmSubmission = () => {
     setHasSubmitted(true);
     socket.emit('submitCards', { roomCode, cards: selectedCards });
+
+    setLocalHand(prevHand => prevHand.filter(card => !selectedCards.some(sc => sc.id === card.id)));
   };
 
   const handleRevealNextCard = () => { socket.emit('revealNextCard', { roomCode }); };
@@ -239,6 +269,7 @@ export function Game(props) {
 
   const handleKickPlayer = (playerId) => {
     socket.emit('kickPlayer', { roomCode, playerIdToKick: playerId });
+    setShowKickModal(false);
   };
 
   const handleLeaveGame = () => {
@@ -291,72 +322,133 @@ export function Game(props) {
     hasSubmitted = false,
     selectedCards = [],
     onSelectCard = () => { },
-    // Pass all the image submission props in one object
     imageSubmitterProps = null
   }) {
-    // --- All pagination logic now lives inside this component ---
-    const [currentPage, setCurrentPage] = useState(0);
+    const [[currentPage, direction], setCurrentPage] = useState([0, 0]);
 
-    // The special object for our submitter card
     const imageSubmitterCard = { id: 'image-submitter', type: 'submitter' };
-
-    // The hand to display: if it's a player's hand, add the submitter card.
     const displayHand = !isCzar && imageSubmitterProps ? [imageSubmitterCard, ...hand] : hand;
 
-    const CARDS_PER_PAGE = isMobile ? 6 : 12; // 6 on mobile, 12 on desktop
+    const CARDS_PER_PAGE = isMobile ? 6 : 12;
     const totalPages = Math.ceil(displayHand.length / CARDS_PER_PAGE);
 
-    useEffect(() => {
-      setCurrentPage(0);
-    }, [displayHand.length]);
+    // --- CHANGE: The pagination functions now also set a direction for the animation ---
+    const paginate = (newDirection) => {
+      const newPage = currentPage + newDirection;
+      // Loop around if you go past the last or first page
+      const newCurrentPage = (newPage + totalPages) % totalPages;
+      setCurrentPage([newCurrentPage, newDirection]);
+    };
 
     const cardsToRender = isMobile ? displayHand.slice(
       currentPage * CARDS_PER_PAGE,
       (currentPage + 1) * CARDS_PER_PAGE
-    ) : displayHand; // On desktop, show all cards
+    ) : displayHand;
 
-    const goToNextPage = () => setCurrentPage(current => (current + 1) % totalPages);
-    const goToPrevPage = () => setCurrentPage(current => (current - 1 + totalPages) % totalPages);
+    // --- CHANGE: Animation variants for the sliding effect ---
+    const slideVariants = {
+      enter: (direction) => ({
+        x: direction > 0 ? '100%' : '-100%',
+        opacity: 0,
+      }),
+      center: {
+        zIndex: 1,
+        x: 0,
+        opacity: 1,
+      },
+      exit: (direction) => ({
+        zIndex: 0,
+        x: direction < 0 ? '100%' : '-100%',
+        opacity: 0,
+      }),
+    };
 
     return (
       <>
         <div className="hand-pagination">
           {isMobile && totalPages > 1 && (
-            <button onClick={goToPrevPage} className="page-arrow left"><IoArrowBackCircle /></button>
+            <button onClick={() => paginate(-1)} className="page-arrow left"><IoArrowBackCircle /></button>
           )}
 
-          <div className="card-container">
-            {cardsToRender.map(card => {
-              // Render the special image submitter card
-              if (card.type === 'submitter') {
-                const { imageUrl, setImageUrl, handleImageSubmit, imageCreationsLeft, isValidating } = imageSubmitterProps;
+          {/* --- CHANGE: The animation logic is now on a container outside the map --- */}
+          <AnimatePresence initial={false} custom={direction} mode="wait">
+            <motion.div
+              key={currentPage} // This tells Framer Motion to animate when the page changes
+              className="card-container"
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: "spring", stiffness: 300, damping: 20 },
+                opacity: { duration: 0.1 },
+              }}
+            >
+              {cardsToRender.map(card => {
+                // The logic for rendering each card remains the same as before
+                if (card.type === 'submitter') {
+                  const { imageUrl, setImageUrl, handleImageSubmit, imageCreationsLeft, isValidating } = imageSubmitterProps;
+                  return (
+                    <div key={card.id} className="card image-submit-card">
+                      <input type="text" placeholder="Paste image URL..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} disabled={imageCreationsLeft <= 0 || isValidating} onClick={(e) => e.stopPropagation()} />
+                      <button className="submit-image-card-button" onClick={handleImageSubmit} disabled={imageCreationsLeft <= 0 || isValidating}>{isValidating ? 'Checking' : 'Add to Hand'}</button>
+                      <span className="image-creations-left">{imageCreationsLeft} left</span>
+                    </div>
+                  );
+                }
+                if (isCzar) { return <div key={card.id} className="card czar-hand-card">{card.text}</div>; }
+                const isSelected = selectedCards.some(sc => sc.id === card.id);
+                const isImage = card.type === 'image';
+                const cardVariants = {
+                  // The state when the card is not selected and not hovered
+                  initial: {
+                    y: 0,
+                    scale: 1,
+                    boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)"
+                  },
+                  // The state for hovering over an unselected card
+                  hover: {
+                    y: -10,
+                    scale: 1.05,
+                    boxShadow: "0px 6px 12px rgba(0, 0, 0, 0.3)"
+                  },
+                  // The state for a selected card (this will override the hover state)
+                  selected: {
+                    y: -25,
+                    scale: 1.1,
+                    boxShadow: "0px 8px 16px rgba(143, 60, 136, 0.4)",
+                    border: "3px solid #8963BA",
+                    borderRadius: "15px"
+                  }
+                };
+
+                // --- VVV This is the new, final version of the card component VVV ---
                 return (
-                  <div key={card.id} className="card image-submit-card">
-                    <input type="text" placeholder="Paste image URL..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} disabled={imageCreationsLeft <= 0 || isValidating} onClick={(e) => e.stopPropagation()} />
-                    <button className="submit-image-card-button" onClick={handleImageSubmit} disabled={imageCreationsLeft <= 0 || isValidating}>{isValidating ? 'Checking' : 'Add to Hand'}</button>
-                    <span className="image-creations-left">{imageCreationsLeft} left</span>
-                  </div>
+                  <motion.div
+                    key={card.id}
+                    // "variants" tells the component about our animation states
+                    variants={cardVariants}
+                    // This chooses which variant to display based on the card's state
+                    animate={isSelected ? "selected" : "initial"}
+                    // This tells it to use the "hover" variant when the mouse is over it
+                    whileHover="hover"
+                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                    // The onClick handler is now on the motion.div itself
+                    onClick={() => !hasSubmitted && onSelectCard(card)}
+                  >
+                    {/* The button is now just for display and has no click handler of its own */}
+                    <button className={`card ${isImage ? 'image-card' : ''}`} disabled={hasSubmitted}>
+                      {isImage ? <img src={card.content} alt="Custom Card" /> : card.text}
+                    </button>
+                  </motion.div>
                 );
-              }
-
-              // Render a view-only card for the Czar
-              if (isCzar) {
-                return <div key={card.id} className="card czar-hand-card">{card.text}</div>;
-              }
-
-              // Render a regular, interactive card for the player
-              const isSelected = selectedCards.some(sc => sc.id === card.id);
-              const isImage = card.type === 'image';
-              return (
-                <button key={card.id} className={`card ${isSelected ? 'selected' : ''} ${isImage ? 'image-card' : ''}`} onClick={() => onSelectCard(card)} disabled={hasSubmitted}>
-                  {isImage ? <img src={card.content} alt="Custom Card" /> : card.text}
-                </button>
-              );
-            })}
-          </div>
+              })}
+            </motion.div>
+          </AnimatePresence>
 
           {isMobile && totalPages > 1 && (
-            <button onClick={goToNextPage} className="page-arrow right"><IoArrowForwardCircle /></button>
+            <button onClick={() => paginate(1)} className="page-arrow right"><IoArrowForwardCircle /></button>
           )}
         </div>
         {isMobile && totalPages > 1 && (
@@ -387,6 +479,21 @@ export function Game(props) {
             </div>
           </div>
         </div>
+      )}
+
+      {showKickModal && (
+        <KickPlayerModal
+          players={players}
+          ownerId={owner?.playerId}
+          onKick={handleKickPlayer}
+          onClose={() => setShowKickModal(false)}
+        />
+      )}
+
+      {isOwner && (
+        <button className="open-kick-modal-button" onClick={() => setShowKickModal(true)} title="Kick Player">
+          <FaUserSlash />
+        </button>
       )}
 
       <GameNotification message={notification} />
@@ -519,20 +626,67 @@ export function Game(props) {
           // --- RENDER THIS FOR MOBILE ---
           <>
             <div className="sidebar-nav">
-              <button className={`sidebar-tab ${activeTab === 'scores' ? 'active' : ''}`} onClick={() => setActiveTab('scores')}><FaCrown /> Scores</button>
-              <button className={`sidebar-tab ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}><IoInformationCircleSharp /> Info</button>
-              <button className={`sidebar-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}><IoChatbubblesSharp /> Chat</button>
+              {/* We create an array for our tabs to make it easier to manage */}
+              {[{ id: 'scores', icon: <FaCrown />, label: 'Scores' },
+              { id: 'info', icon: <IoInformationCircleSharp />, label: 'Info' },
+              { id: 'chat', icon: <IoChatbubblesSharp />, label: 'Chat' }
+              ].map(tab => (
+                <motion.button
+                  key={tab.id}
+                  className={`sidebar-tab ${activeTab === tab.id ? "active" : ""}`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  {/* This is the animated indicator. The "layoutId" is the magic part. */}
+                  {activeTab === tab.id && (
+                    <motion.div
+                      className="active-tab-indicator"
+                      layoutId="active-tab-indicator"
+                    />
+                  )}
+
+                  {tab.icon} {tab.label}
+                </motion.button>
+              ))}
             </div>
             <div className="sidebar-content">
-              {activeTab === 'scores' && <Scoreboard players={players} czarId={currentCzar?.playerId} submissions={submissions} isOwner={isOwner} myId={myId} onKickPlayer={handleKickPlayer} isMobile={isMobile} />}
-              {activeTab === 'info' && <GameInfoDisplay settings={settings} roomCode={roomCode} owner={owner} />}
-              {activeTab === 'chat' && <InGameChat roomCode={roomCode} players={players} myId={myId} messages={messages} />}
+              <AnimatePresence mode="wait">
+                {activeTab === 'scores' && (
+                  <motion.div
+                    key="scores" // Unique key for AnimatePresence
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <Scoreboard players={players} czarId={currentCzar?.playerId} submissions={submissions} myId={myId} isMobile={isMobile} />
+                  </motion.div>
+                )}
+                {activeTab === 'info' && (
+                  <motion.div
+                    key="info" // Unique key for AnimatePresence
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <GameInfoDisplay settings={settings} roomCode={roomCode} owner={owner} />
+                  </motion.div>
+                )}
+                {activeTab === 'chat' && (
+                  <motion.div
+                    key="chat" // Unique key for AnimatePresence
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <InGameChat roomCode={roomCode} players={players} myId={myId} messages={messages} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </>
         ) : (
           // --- RENDER THIS FOR DESKTOP ---
           <>
-            <Scoreboard players={players} czarId={currentCzar?.playerId} submissions={submissions} isOwner={isOwner} myId={myId} onKickPlayer={handleKickPlayer} isMobile={isMobile} />
+            <Scoreboard players={players} czarId={currentCzar?.playerId} submissions={submissions} isOwner={isOwner} myId={myId} onKickPlayer={handleKickPlayer} isMobile={isMobile} onOpenKickModal={() => setShowKickModal(true)} />
             <GameInfoDisplay settings={settings} roomCode={roomCode} owner={owner} />
             <InGameChat roomCode={roomCode} players={players} myId={myId} messages={messages} />
           </>
