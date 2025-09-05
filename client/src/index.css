@@ -562,11 +562,12 @@ button:disabled {
   gap: 30px 50px;
   align-items: start;
   height: 85vh;
-  padding: 5vh;
+  padding: 10vh;
 }
 
 /* This is now a flex container for the internal columns */
 .lobby-container {
+  position: relative;
   grid-area: lobby;
   background-color: var(--surface-color);
   padding: 30px 40px;
@@ -618,6 +619,7 @@ button:disabled {
   font-size: 1em;
   flex-direction: column;
   gap: 5px;
+  border: none;
   /* Added space between number and text */
 }
 
@@ -648,6 +650,39 @@ button:disabled {
   width: 100px;
 }
 
+.settings-button {
+  /* Positioning */
+  position: absolute;
+  top: 25px;
+  right: 25px;
+
+  /* Remove default button styles */
+  background: none;
+  border: none;
+
+  /* Sizing and Icon Color */
+  padding: 5px;
+  font-size: 1.5em;
+  color: var(--icon-color);
+  cursor: pointer;
+
+  /* Add a smooth transition for the hover effect */
+  transition: transform 0.2s ease-out, color 0.2s ease-out;
+}
+
+.settings-button:hover {
+  color: var(--text-color);
+  /* Brighten the icon on hover */
+  transform: rotate(45deg);
+  /* Add a little spin on hover */
+  background: none;
+  border:none;
+}
+
+.settings-button::before {
+  background: none;
+}
+
 .player-list h4 {
   margin-bottom: 15px;
 }
@@ -662,16 +697,68 @@ button:disabled {
   padding: 8px 0;
 }
 
-.lobby-background .background-card {
-  filter: blur(10px);
-  /* Increased blur */
-  opacity: 0.07;
-  /* Make them slightly more visible, but the blur will obscure them */
+.player-list-trigger {
+  margin-top: 20px;
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--icon-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: fit-content;
+  /* Make the button only as wide as its content */
+  padding: 8px 15px;
+}
+
+.player-list-trigger:hover {
+  border-color: var(--text-color);
+  color: var(--text-color);
+  background-color: var(--surface-color);
+  /* Add a slight background on hover */
+}
+
+/* Make the player list modal a bit wider */
+.player-list-modal {
+  max-width: 400px;
+  width: 90%;
+}
+
+/* --- You can also reuse these styles from the in-game modal --- */
+.kick-player-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.kick-player-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.2em;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.kick-player-list li:last-child {
+  border-bottom: none;
+}
+
+.lobby-background {
+  filter: brightness(0.05);
 }
 
 /* We also need a generic lobby-screen class now */
 .lobby-screen {
   position: relative;
+  /* Establishes the stacking context */
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  /* Contains the light effect */
+  justify-content: center;
+  align-items: center;
 }
 
 .chat-messages {
@@ -1199,12 +1286,12 @@ button.card.image-card img {
 @keyframes spotlight {
   0% {
     opacity: 0;
-    transform: translate(-72%, -62%) scale(0.5);
+    transform: translate(-42%, -42%) scale(0.5);
   }
 
   100% {
     opacity: 1;
-    transform: translate(-40%, -40%) scale(1);
+    transform: translate(-30%, -40%) scale(1.2);
   }
 }
 
@@ -1212,7 +1299,7 @@ button.card.image-card img {
   position: relative;
   /* This is crucial for positioning the spotlight */
   /* This hides the parts of the spotlight that go off-screen */
-  background: radial-gradient(circle at center, transparent 40%, black 80%);
+  background: radial-gradient(circle at 50%, transparent -50%, black 75%);
   height: 100vh;
 }
 
@@ -1230,7 +1317,7 @@ button.card.image-card img {
   height: 100%;
   pointer-events: none;
   overflow: hidden;
-  z-index: 0;
+  z-index: 5;
   opacity: 0;
   /* Start invisible */
   animation: fade-in-particles 2s ease-in 0.5s forwards;
@@ -1280,6 +1367,97 @@ button.card.image-card img {
     opacity: 0;
   }
 }
+
+/* --- New Lobby Spotlight Effect --- */
+.lobby-spotlight-wrapper {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 2;
+  /* Sits on top of the background cards */
+}
+
+.lobby-spotlight-beam-container {
+  position: absolute;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
+.lobby-spotlight-beam-container.left {
+  left: 0;
+}
+
+.lobby-spotlight-beam-container.right {
+  right: 0;
+}
+
+.spotlight-gradient {
+  position: absolute;
+  top: 0;
+}
+
+.spotlight-gradient.first {
+  left: 0;
+}
+
+.spotlight-gradient.second {
+  left: 0;
+  transform-origin: top left;
+  /* Corrected property */
+}
+
+.spotlight-gradient.third {
+  left: 0;
+  transform-origin: top left;
+  /* Corrected property */
+}
+
+.lobby-spotlight-beam-container.right .spotlight-gradient.first {
+  right: 0;
+  left: auto;
+}
+
+.lobby-spotlight-beam-container.right .spotlight-gradient.second {
+  right: 0;
+  left: auto;
+  transform-origin: top right;
+}
+
+.lobby-spotlight-beam-container.right .spotlight-gradient.third {
+  right: 0;
+  left: auto;
+  transform-origin: top right;
+}
+
+.vignette-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1;
+
+  /* This creates the dark overlay */
+  background-color: rgba(0, 0, 0, 0.9);
+
+  /* This new mask creates ONE large, soft, transparent hole in the center */
+  -webkit-mask-image: radial-gradient(ellipse 70% 65% at center,
+      /* A wide ellipse in the middle of the screen */
+      transparent 40%,
+      /* The center is transparent (the "light") */
+      black 80%
+      /* It fades to solid black at the edges (the "darkness") */
+    );
+  mask-image: radial-gradient(ellipse 60% 45% at 50% 40%,
+      transparent 40%,
+      black 80%);
+}
+
 
 /* =================================== */
 /* ======== RESPONSIVE STYLES ======== */
@@ -1344,36 +1522,10 @@ button.card.image-card img {
     left: 15px;
   }
 
-  .lobby-grid-container {
-    /* Define a simple grid for the main content */
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    /* Chat is wider than players */
-    grid-template-rows: auto 1fr;
-    /* Top row is auto-sized, bottom row fills space */
-    grid-template-areas:
-      "details details"
-      "chat    players";
-
-    height: auto;
-    min-height: 100vh;
-    padding: 10px 10px 65px 10px;
-    /* Add extra padding at the bottom for the card counts */
-    gap: 10px;
-  }
-
-  /* This allows us to position the player list independently of its parent */
-  .lobby-container {
-    display: contents;
-  }
 
   /* Assign items to their named areas in the grid */
   .lobby-details {
     grid-area: details;
-  }
-
-  .chat-container {
-    grid-area: chat;
   }
 
   .lobby-players {
@@ -1391,12 +1543,7 @@ button.card.image-card img {
   }
 
   .lobby-details {
-    margin-top: 20%;
     max-height: 420px;
-  }
-
-  .chat-container {
-    max-height: 300px;
   }
 
   .lobby-players {
@@ -1405,6 +1552,82 @@ button.card.image-card img {
     width: auto;
     padding-left: 15px;
     padding-top: 15px;
+  }
+
+  .lobby-screen {
+    display: block;
+    padding: 15px;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  /* 2. Enforce your intended mobile grid structure */
+  .lobby-grid-container {
+    height: auto;
+    padding: 0;
+    padding-top: 60px;
+    /* Make space for the back button */
+
+    /* Your original, correct mobile layout: */
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "details details"
+      "players chat"
+      /* Swapped these for better visual balance */
+      "card-counts card-counts";
+    gap: 15px;
+  }
+
+  /* 3. Clean up the main UI boxes and assign them to their grid areas */
+  .lobby-container,
+  .chat-container,
+  .lobby-players {
+    width: 100%;
+    max-height: none;
+    padding: 15px;
+    /* REMOVE the conflicting mask-image from the desktop styles */
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .lobby-container {
+    grid-area: details;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .lobby-players {
+    grid-area: players;
+    padding-left: 15px;
+    border-left: none;
+  }
+
+  .chat-container {
+    height: 300px;
+    grid-area: chat;
+  }
+
+  /* 4. Position the card counts at the bottom of the new grid */
+  .card-count-container {
+    grid-area: card-counts;
+    position: static;
+    /* Un-stick it from the bottom of the screen */
+    padding: 15px 0;
+    pointer-events: auto;
+  }
+
+  /* 5. Adjust card count boxes for the new layout */
+  .card-count-container .card {
+    height: 100px;
+    width: 120px;
+    border-radius: 12px;
+  }
+
+  .card-count-container .card span {
+    display: block;
+    /* Show the text labels again */
   }
 
 
@@ -1416,13 +1639,9 @@ button.card.image-card img {
     /* Remove from the grid layout */
     display: flex;
     justify-content: left;
-    position: fixed;
-    /* Pin it to the bottom of the screen */
     bottom: 0;
     left: 0;
     right: 0;
-    padding-bottom: 10px;
-    padding-left: 10px;
     gap: 5px;
     pointer-events: none;
     /* Prevents the container from blocking clicks */
@@ -1714,4 +1933,39 @@ button.card.image-card img {
     height: 30px;
     font-size: 1em;
   }
+
+  @keyframes spotlight {
+    0% {
+      opacity: 0;
+      transform: translate(-72%, -62%) scale(0.5);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translate(-20%, -50%) scale(2);
+    }
+  }
+
+  .spotlight-container {
+    position: relative;
+    /* This is crucial for positioning the spotlight */
+    /* This hides the parts of the spotlight that go off-screen */
+    background: radial-gradient(circle at center, transparent 10%, black 90%);
+    height: 100vh;
+  }
+
+  .vignette-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 1;
+    background-color: rgba(0, 0, 0, 0.9);
+    mask-image: radial-gradient(ellipse 70% 45% at 50% 45%,
+        transparent 50%,
+        black 90%);
+  }
+
 }

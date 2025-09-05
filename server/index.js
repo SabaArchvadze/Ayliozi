@@ -157,51 +157,41 @@ io.on('connection', (socket) => {
   });
 
   socket.on('changeSettings', (data) => {
-    const { roomCode, newSettings } = data;
-    const room = gameRooms[roomCode];
+  const { roomCode, newSettings } = data;
+  const room = gameRooms[roomCode];
 
-    if (room && room.players[0].socketId === socket.id) {
-      if (!roomTimeouts[roomCode]) {
-        originalSettingsState[roomCode] = { ...room.settings };
-      }
+  if (room && room.players[0].socketId === socket.id) {
+    // --- VVV THIS IS THE NEW VALIDATION LOGIC VVV ---
 
-      room.settings = { ...room.settings, ...newSettings };
-      io.to(roomCode).emit('settingsUpdated', { settings: room.settings });
+    // 1. Define the valid ranges for your settings.
+    const limits = {
+      pointsToWin: { min: 3, max: 20 },
+      maxPlayers: { min: 3, max: 12 },
+      handSize: { min: 5, max: 15 },
+    };
 
-      clearTimeout(roomTimeouts[roomCode]);
-
-      roomTimeouts[roomCode] = setTimeout(() => {
-        const originalState = originalSettingsState[roomCode];
-        const finalState = room.settings;
-        const changes = []; // An array to hold all the summary messages
-
-        const settingNames = {
-          pointsToWin: 'Points to Win',
-          maxPlayers: 'Max Players',
-          handSize: 'Cards in Hand'
-        };
-
-        for (const key in finalState) {
-          if (originalState[key] !== finalState[key]) {
-            const friendlyName = settingNames[key] || key;
-            changes.push(`${friendlyName} from ${originalState[key]} to ${finalState[key]}`);
-          }
-        }
-
-        if (changes.length > 0) {
-          const fullMessage = `Owner updated settings: ${changes.join(', ')}.`;
-          io.to(roomCode).emit('newMessage', {
-            type: 'system',
-            message: fullMessage
-          });
-        }
-
-        delete roomTimeouts[roomCode];
-        delete originalSettingsState[roomCode];
-
-      }, 2000); // 2-second delay
+    // 2. Validate and clamp the incoming setting value.
+    const settingKey = Object.keys(newSettings)[0]; // e.g., "maxPlayers"
+    const incomingValue = newSettings[settingKey];
+    
+    // Make sure the value is a number before validating
+    if (settingKey && typeof incomingValue === 'number' && !isNaN(incomingValue)) {
+      const validValue = Math.max(
+        limits[settingKey].min,
+        Math.min(limits[settingKey].max, incomingValue)
+      );
+      
+      // 3. Apply the *validated* value to the room settings.
+      room.settings[settingKey] = validValue;
     }
-  });
+    // --- ^^^ END OF NEW LOGIC ^^^ ---
+
+    // The rest of the debouncing logic remains the same
+    clearTimeout(roomTimeouts[roomCode]);
+
+      io.to(roomCode).emit('settingsUpdated', { settings: room.settings });
+  }
+});
 
   socket.on('joinGame', (data) => {
     const { roomCode, username } = data;
