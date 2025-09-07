@@ -204,9 +204,10 @@ io.on('connection', (socket) => {
       const newPlayer = createPlayer(socket.id, username);
       room.players.push(newPlayer);
       socket.join(roomCode);
+
       socket.emit('joinSuccess', { ...room, roomCode: roomCode, me: newPlayer, promptCount: prompts.length, answerCount: answers.length });
+      socket.broadcast.to(roomCode).emit('playerJoined', { players: room.players });
       io.to(roomCode).emit('newMessage', { type: 'system', message: `${username} has joined.` });
-      io.to(roomCode).emit('playerJoined', { players: room.players });
     } else { socket.emit('error', 'Room not found.'); }
   });
 
