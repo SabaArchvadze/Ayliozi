@@ -1,5 +1,5 @@
 import { io } from 'socket.io-client';
 
-const URL = 'http://localhost:3001';
+const URL = 'https://ayliozi-game-server.onrender.com/';
 
 export const socket = io(URL);
