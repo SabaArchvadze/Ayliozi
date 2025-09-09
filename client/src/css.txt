@@ -45,7 +45,7 @@ body {
   gap: 20px;
   align-items: flex-start;
   text-align: center;
-  min-width: 800px;
+  min-width:800px;
 }
 
 .game-board {
@@ -677,7 +677,7 @@ button:disabled {
   transform: rotate(45deg);
   /* Add a little spin on hover */
   background: none;
-  border: none;
+  border:none;
 }
 
 .settings-button::before {
@@ -1459,10 +1459,6 @@ button.card.image-card img {
       black 80%);
 }
 
-.game-viewport {
-  box-sizing: border-box;
-}
-
 
 /* =================================== */
 /* ======== RESPONSIVE STYLES ======== */
@@ -1689,7 +1685,7 @@ button.card.image-card img {
     gap: 20px;
   }
 
-
+  
 
   @keyframes spotlight {
     0% {
@@ -1723,26 +1719,5 @@ button.card.image-card img {
     mask-image: radial-gradient(ellipse 70% 45% at 50% 45%,
         transparent 50%,
         black 90%);
-  }
-
-  .game-scale-wrapper,
-  .app-container {
-    min-width: 1100px;
-    /* match the number you used in useTemporaryDesktopViewport */
-    width: 1100px;
-    box-sizing: border-box;
-  }
-
-  /* make sure the outer wrapper allows the browser to scroll/zoom (no forced horizontal panning) */
-  .game-viewport {
-    overflow: auto;
-    /* allow browser to scroll if needed */
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* ensure no page-level horizontal overflow */
-  html,
-  body {
-    overflow-x: hidden;
   }
 }

@@ -209,12 +209,91 @@ function GameInfoDisplay({ settings, roomCode, owner }) {
   );
 }
 
+function useTemporaryDesktopViewport(desktopWidth = 1100, opts = {}) {
+  // opts.minScale optional: don't let initial-scale go below this (default 0.35)
+  const MIN_SCALE = typeof opts.minScale === 'number' ? opts.minScale : 0.35;
+
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    const prevMetaContent = meta ? meta.getAttribute('content') : null;
+    let createdMeta = false;
+    let resizeTimer = null;
+
+    // Save body inline styles so we can restore them
+    const prevBodyStyles = {
+      position: document.body.style.position || '',
+      overflow: document.body.style.overflow || '',
+      width: document.body.style.width || '',
+      height: document.body.style.height || ''
+    };
+
+    function applyViewport() {
+      const vw = Math.max(window.innerWidth, document.documentElement.clientWidth || 0);
+      // initial scale so the desktopWidth fits into viewport width
+      let initialScale = vw / desktopWidth;
+      if (initialScale > 1) initialScale = 1;
+      if (initialScale < MIN_SCALE) initialScale = MIN_SCALE;
+
+      // Compose the new viewport meta content
+      const newContent = `width=${desktopWidth}, initial-scale=${initialScale}, maximum-scale=5, user-scalable=yes`;
+
+      if (meta) {
+        meta.setAttribute('content', newContent);
+      } else {
+        const m = document.createElement('meta');
+        m.name = 'viewport';
+        m.content = newContent;
+        document.head.appendChild(m);
+        createdMeta = true;
+      }
+
+      // Relax any global "body fixed" rules while in-game so browser can zoom/scroll normally
+      document.body.style.position = 'static';
+      document.body.style.overflow = 'auto';
+      document.body.style.width = 'auto';
+      document.body.style.height = 'auto';
+    }
+
+    // Apply initially
+    applyViewport();
+
+    // Update on resize/orientation with small debounce
+    function onResize() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(applyViewport, 120);
+    }
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+
+    return () => {
+      // restore meta
+      if (meta) {
+        if (prevMetaContent !== null) meta.setAttribute('content', prevMetaContent);
+        else meta.setAttribute('content', 'width=device-width, initial-scale=1');
+      } else if (createdMeta) {
+        const created = document.querySelector('meta[name="viewport"][content*="width=' + desktopWidth + '"]');
+        if (created) created.remove();
+      }
+
+      // restore body styles
+      document.body.style.position = prevBodyStyles.position;
+      document.body.style.overflow = prevBodyStyles.overflow;
+      document.body.style.width = prevBodyStyles.width;
+      document.body.style.height = prevBodyStyles.height;
+
+      clearTimeout(resizeTimer);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, [desktopWidth, MIN_SCALE]);
+}
+
 export function Game(props) {
   console.log(`--- GAME STATE ---`, { myId: props.myId, roomData: props.roomData });
   const { roomData, myId, roundWinnerInfo, firstCardPlayed, notification, messages, setError } = props;
   const { roomCode, currentCzar, currentPrompt, players, revealedSubmissions, submissions = [], phase, settings } = roomData;
 
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isMobile = false;
 
   const owner = players ? players[0] : null;
   const me = players.find(p => p.socketId === myId);
@@ -232,6 +311,8 @@ export function Game(props) {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
   const [activeTab, setActiveTab] = useState('scores');
   const [showKickModal, setShowKickModal] = useState(false);
+
+  useTemporaryDesktopViewport(1100);
 
   useEffect(() => {
     setLocalHand(me?.hand || []);
