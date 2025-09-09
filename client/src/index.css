@@ -28,6 +28,11 @@ body {
   left: 0;
 }
 
+body.desktop-viewport-active {
+  position: static; /* Override the global 'position: fixed' */
+  overflow: auto;   /* Ensure the user can pan and zoom if needed */
+}
+
 .no-scroll {
   overflow-y: hidden;
 }
@@ -45,7 +50,7 @@ body {
   gap: 20px;
   align-items: flex-start;
   text-align: center;
-  min-width: 800px;
+  min-width: 1100px;
 }
 
 .game-board {
