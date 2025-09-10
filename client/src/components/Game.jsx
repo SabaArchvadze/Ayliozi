@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { socket } from '../socket';
 import { FaCrown, FaCheck, FaTimes, FaTrophy, FaUsers, FaLayerGroup, FaUserSlash } from 'react-icons/fa';
-import { IoChatbubblesSharp, IoInformationCircleSharp, IoArrowBack, IoArrowForward, IoArrowBackCircle, IoArrowForwardCircle } from "react-icons/io5";
+import { IoChatbubblesSharp, IoInformationCircleSharp, IoArrowBack, IoArrowBackCircle, IoArrowForwardCircle } from "react-icons/io5";
 import { CountdownTimer } from './CountdownTimer';
-import { useMediaQuery } from '../hooks/useMediaQuery';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
+import imageCompression from 'browser-image-compression';
 
 function Scoreboard({ players, czarId, submissions = [], isOwner, myId, onKickPlayer, isMobile }) {
   const rankedPlayers = [...players].sort((a, b) => b.score - a.score);
@@ -216,10 +216,10 @@ function useTemporaryDesktopViewport(desktopWidth = 1100) {
 
     // Save the original content to restore on cleanup
     const originalContent = meta.getAttribute('content');
-    
+
     // Set the viewport to a fixed desktop width. The browser will auto-scale.
     meta.setAttribute('content', `width=${desktopWidth}`);
-    
+
     // Add a class to the body for CSS overrides
     document.body.classList.add('desktop-viewport-active');
 
@@ -248,7 +248,6 @@ export function Game(props) {
 
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [selectedCards, setSelectedCards] = useState([]);
-  const [imageUrl, setImageUrl] = useState('');
   const [hiddenImages, setHiddenImages] = useState([]);
   const [localHand, setLocalHand] = useState([]);
   const [imageCreationsLeft, setImageCreationsLeft] = useState(3);
@@ -258,6 +257,82 @@ export function Game(props) {
   const [showKickModal, setShowKickModal] = useState(false);
 
   useTemporaryDesktopViewport(1100);
+
+  const handleDeleteImageCard = useCallback((cardId) => {
+    setLocalHand(prevHand => prevHand.filter(card => card.id !== cardId));
+    setImageCreationsLeft(prev => prev + 1);
+  }, []); // No dependencies needed as it uses functional updates
+
+  const uploadImage = useCallback(async (file) => {
+  if (!file) return;
+  
+  // The check for imageCreationsLeft now happens at the very start
+  if (imageCreationsLeft <= 0) {
+    setError("No image creations left for this round.");
+    return;
+  }
+
+  setIsValidating(true);
+  setError('');
+
+  // --- NEW COMPRESSION LOGIC ---
+  console.log(`Original image size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+
+  const options = {
+    maxSizeMB: 1,          // Max file size in megabytes
+    maxWidthOrHeight: 800, // Resize the image to be max 800px on its longest side
+    useWebWorker: true,    // Use a separate thread for compression
+  };
+
+  try {
+    const compressedFile = await imageCompression(file, options);
+    console.log(`Compressed image size: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
+    
+    // --- UPLOAD LOGIC (now uses the compressedFile) ---
+    const formData = new FormData();
+    formData.append('image', compressedFile); // We send the smaller file
+
+    const response = await fetch('https://ayliozi-game-server.onrender.com/api/upload-image', { // Or your env variable
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.message || 'Upload failed.');
+    
+    const newImageCard = { id: `image-${Date.now()}`, type: 'image', content: data.url };
+    setLocalHand(prevHand => [newImageCard, ...prevHand]);
+    setImageCreationsLeft(prev => prev - 1);
+
+  } catch (err) {
+    setError(err.message);
+    console.error(err);
+  } finally {
+    setIsValidating(false);
+  }
+}, [imageCreationsLeft]);
+
+  const handleGlobalPaste = useCallback((event) => {
+    const items = event.clipboardData.items;
+    for (const item of items) {
+      if (item.type.indexOf('image') !== -1) {
+        const file = item.getAsFile();
+        uploadImage(file);
+        event.preventDefault();
+        return;
+      }
+    }
+  }, [uploadImage]);
+
+  useEffect(() => {
+    const canPlayerPaste = phase === 'submitting' && !isCzar && !isSpectator;
+
+    if (canPlayerPaste) {
+      window.addEventListener('paste', handleGlobalPaste);
+    }
+    return () => {
+      window.removeEventListener('paste', handleGlobalPaste);
+    };
+  }, [phase, isCzar, isSpectator, handleGlobalPaste]);
 
   useEffect(() => {
     setLocalHand(me?.hand || []);
@@ -303,36 +378,6 @@ export function Game(props) {
     socket.emit('leaveGame', { roomCode });
   };
 
-  const handleImageSubmit = () => {
-    if (imageUrl.trim() === '' || imageCreationsLeft <= 0 || isValidating) return;
-
-    setIsValidating(true);
-    setError(''); // Clear previous errors
-
-    // Create an image in memory to test the URL
-    const img = new Image();
-    img.src = imageUrl;
-
-    img.onload = () => {
-      // If the image loads successfully...
-      const newImageCard = {
-        id: `image-${Date.now()}`,
-        type: 'image',
-        content: imageUrl
-      };
-      setLocalHand(prevHand => [newImageCard, ...prevHand]);
-      setImageUrl('');
-      setImageCreationsLeft(prev => prev - 1);
-      setIsValidating(false);
-    };
-
-    img.onerror = () => {
-      // If the image fails to load...
-      setError("Invalid or non-working image URL.");
-      setIsValidating(false);
-    };
-  };
-
   const toggleImageVisibility = (cardId) => {
     if (hiddenImages.includes(cardId)) {
       setHiddenImages(hiddenImages.filter(id => id !== cardId));
@@ -348,122 +393,66 @@ export function Game(props) {
     hasSubmitted = false,
     selectedCards = [],
     onSelectCard = () => { },
-    imageSubmitterProps = null
+    imageSubmitterProps = null,
+    onDeleteImageCard,
+    onImageUpload
   }) {
     const [[currentPage, direction], setCurrentPage] = useState([0, 0]);
+    const fileInputRef = useRef(null);
+
+    const onFileSelected = (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        onImageUpload(e.target.files[0]);
+      }
+    };
 
     const imageSubmitterCard = { id: 'image-submitter', type: 'submitter' };
     const displayHand = !isCzar && imageSubmitterProps ? [imageSubmitterCard, ...hand] : hand;
 
+    // All pagination and animation logic remains the same...
     const CARDS_PER_PAGE = isMobile ? 6 : 12;
     const totalPages = Math.ceil(displayHand.length / CARDS_PER_PAGE);
-
-    // --- CHANGE: The pagination functions now also set a direction for the animation ---
     const paginate = (newDirection) => {
       const newPage = currentPage + newDirection;
-      // Loop around if you go past the last or first page
       const newCurrentPage = (newPage + totalPages) % totalPages;
       setCurrentPage([newCurrentPage, newDirection]);
     };
-
-    const cardsToRender = isMobile ? displayHand.slice(
-      currentPage * CARDS_PER_PAGE,
-      (currentPage + 1) * CARDS_PER_PAGE
-    ) : displayHand;
-
-    // --- CHANGE: Animation variants for the sliding effect ---
-    const slideVariants = {
-      enter: (direction) => ({
-        x: direction > 0 ? '100%' : '-100%',
-        opacity: 0,
-      }),
-      center: {
-        zIndex: 1,
-        x: 0,
-        opacity: 1,
-      },
-      exit: (direction) => ({
-        zIndex: 0,
-        x: direction < 0 ? '100%' : '-100%',
-        opacity: 0,
-      }),
-    };
+    const cardsToRender = isMobile ? displayHand.slice(currentPage * CARDS_PER_PAGE, (currentPage + 1) * CARDS_PER_PAGE) : displayHand;
+    const slideVariants = { enter: (direction) => ({ x: direction > 0 ? '100%' : '-100%', opacity: 0 }), center: { zIndex: 1, x: 0, opacity: 1 }, exit: (direction) => ({ zIndex: 0, x: direction < 0 ? '100%' : '-100%', opacity: 0 }) };
 
     return (
       <>
         <div className="hand-pagination">
-          {isMobile && totalPages > 1 && (
-            <button onClick={() => paginate(-1)} className="page-arrow left"><IoArrowBackCircle /></button>
-          )}
-
-          {/* --- CHANGE: The animation logic is now on a container outside the map --- */}
+          {isMobile && totalPages > 1 && <button onClick={() => paginate(-1)} className="page-arrow left"><IoArrowBackCircle /></button>}
           <AnimatePresence initial={false} custom={direction} mode="wait">
-            <motion.div
-              key={currentPage} // This tells Framer Motion to animate when the page changes
-              className="card-container"
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{
-                x: { type: "spring", stiffness: 300, damping: 20 },
-                opacity: { duration: 0.1 },
-              }}
-            >
+            <motion.div key={currentPage} className="card-container" custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ x: { type: "spring", stiffness: 300, damping: 20 }, opacity: { duration: 0.1 } }}>
               {cardsToRender.map(card => {
-                // The logic for rendering each card remains the same as before
                 if (card.type === 'submitter') {
-                  const { imageUrl, setImageUrl, handleImageSubmit, imageCreationsLeft, isValidating } = imageSubmitterProps;
                   return (
-                    <div key={card.id} className="card image-submit-card">
-                      <input type="text" placeholder="Paste image URL..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} disabled={imageCreationsLeft <= 0 || isValidating} onClick={(e) => e.stopPropagation()} />
-                      <button className="submit-image-card-button" onClick={handleImageSubmit} disabled={imageCreationsLeft <= 0 || isValidating}>{isValidating ? 'Checking' : 'Add to Hand'}</button>
-                      <span className="image-creations-left">{imageCreationsLeft} left</span>
+                    <div key={card.id} className="card image-submit-card" onClick={() => fileInputRef.current?.click()}>
+                      {imageSubmitterProps.isUploading ? <div className="loader">Uploading...</div> : (
+                        <>
+                          <div className="upload-instructions">Click to select file</div>
+                          <input type="file" ref={fileInputRef} onChange={onFileSelected} accept="image/png, image/jpeg, image/gif" style={{ display: 'none' }} disabled={imageSubmitterProps.isUploading || imageSubmitterProps.imageCreationsLeft <= 0} />
+                          <span className="image-creations-left">{imageSubmitterProps.imageCreationsLeft} left</span>
+                        </>
+                      )}
                     </div>
                   );
                 }
                 if (isCzar) { return <div key={card.id} className="card czar-hand-card">{card.text}</div>; }
+
                 const isSelected = selectedCards.some(sc => sc.id === card.id);
                 const isImage = card.type === 'image';
-                const cardVariants = {
-                  // The state when the card is not selected and not hovered
-                  initial: {
-                    y: 0,
-                    scale: 1,
-                    boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)"
-                  },
-                  // The state for hovering over an unselected card
-                  hover: {
-                    y: -10,
-                    scale: 1.05,
-                    boxShadow: "0px 6px 12px rgba(0, 0, 0, 0.3)"
-                  },
-                  // The state for a selected card (this will override the hover state)
-                  selected: {
-                    y: -25,
-                    scale: 1.1,
-                    boxShadow: "0px 8px 16px rgba(143, 60, 136, 0.4)",
-                    border: "3px solid #8963BA",
-                    borderRadius: "15px"
-                  }
-                };
+                const cardVariants = { initial: { y: 0, scale: 1, boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)" }, hover: { y: -10, scale: 1.05, boxShadow: "0px 6px 12px rgba(0, 0, 0, 0.3)" }, selected: { y: -25, scale: 1.1, boxShadow: "0px 8px 16px rgba(143, 60, 136, 0.4)", border: "3px solid #8963BA", borderRadius: "15px" } };
 
-                // --- VVV This is the new, final version of the card component VVV ---
                 return (
-                  <motion.div
-                    key={card.id}
-                    // "variants" tells the component about our animation states
-                    variants={cardVariants}
-                    // This chooses which variant to display based on the card's state
-                    animate={isSelected ? "selected" : "initial"}
-                    // This tells it to use the "hover" variant when the mouse is over it
-                    whileHover="hover"
-                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                    // The onClick handler is now on the motion.div itself
-                    onClick={() => !hasSubmitted && onSelectCard(card)}
-                  >
-                    {/* The button is now just for display and has no click handler of its own */}
+                  <motion.div key={card.id} variants={cardVariants} animate={isSelected ? "selected" : "initial"} whileHover="hover" transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => !hasSubmitted && onSelectCard(card)} style={{ position: 'relative' }}>
+                    {isImage && !hasSubmitted && (
+                      <button className="delete-image-button" onClick={(e) => { e.stopPropagation(); onDeleteImageCard(card.id); }}>
+                        <FaTimes />
+                      </button>
+                    )}
                     <button className={`card ${isImage ? 'image-card' : ''}`} disabled={hasSubmitted}>
                       {isImage ? <img src={card.content} alt="Custom Card" /> : card.text}
                     </button>
@@ -472,14 +461,9 @@ export function Game(props) {
               })}
             </motion.div>
           </AnimatePresence>
-
-          {isMobile && totalPages > 1 && (
-            <button onClick={() => paginate(1)} className="page-arrow right"><IoArrowForwardCircle /></button>
-          )}
+          {isMobile && totalPages > 1 && <button onClick={() => paginate(1)} className="page-arrow right"><IoArrowForwardCircle /></button>}
         </div>
-        {isMobile && totalPages > 1 && (
-          <div className="page-indicator">Page {currentPage + 1} of {totalPages}</div>
-        )}
+        {isMobile && totalPages > 1 && <div className="page-indicator">Page {currentPage + 1} of {totalPages}</div>}
       </>
     );
   }
@@ -636,8 +620,12 @@ export function Game(props) {
                     selectedCards={selectedCards}
                     onSelectCard={handleSelectCard}
                     imageSubmitterProps={{
-                      imageUrl, setImageUrl, handleImageSubmit, imageCreationsLeft, isValidating
+                      imageCreationsLeft,
+                      isUploading: isValidating,
                     }}
+                    onDeleteImageCard={handleDeleteImageCard}
+                    onImageUpload={uploadImage}
+                    setError={setError}
                   />
                   {canConfirmSubmission && !hasSubmitted && (<button className="submit-button" onClick={handleConfirmSubmission}>Confirm Submission</button>)}
                   {hasSubmitted && <p>You submitted your card(s)!</p>}

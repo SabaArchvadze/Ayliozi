@@ -4,6 +4,13 @@ const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 const cors = require('cors');
+const fetch = require('node-fetch');
+
+const axios = require('axios');
+const multer = require('multer');
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 const prompts = require('./prompts_ge.json');
 const answers = require('./answers_ge.json');
@@ -15,7 +22,7 @@ app.use(express.json());
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
-const RECONNECT_TIMEOUT_MS = 10000;
+const RECONNECT_TIMEOUT_MS = 300000;
 const gameRooms = {};
 const roomTimeouts = {};
 const originalSettingsState = {};
@@ -133,6 +140,39 @@ app.post('/api/report-bug', async (req, res) => {
   } catch (error) {
     console.error('Error sending to Discord:', error);
     res.status(500).json({ message: 'Failed to send the report.' });
+  }
+});
+
+app.post('/api/upload-image', upload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No image file provided.' });
+  }
+
+  try {
+    const apiKey = process.env.IMGBB_API_KEY;
+    // ImgBB requires the image to be sent as a base64 string in the form data.
+    const imageAsBase64 = req.file.buffer.toString('base64');
+
+    // We use URLSearchParams to format the body correctly.
+    const formData = new URLSearchParams();
+    formData.append('image', imageAsBase64);
+
+    const response = await axios.post(`https://api.imgbb.com/1/upload?key=${apiKey}`, formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+
+    if (!response.data || !response.data.success) {
+      throw new Error(response.data.error.message || 'ImgBB upload failed.');
+    }
+
+    const imageUrl = response.data.data.url;
+    res.status(200).json({ success: true, url: imageUrl });
+
+  } catch (error) {
+    console.error('ImgBB upload failed:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to upload image.' });
   }
 });
 
@@ -552,6 +592,11 @@ io.on('connection', (socket) => {
         message: message,
       });
     }
+  });
+
+  socket.on('heartbeat', (msg) => {
+    // The server has received a ping. We don't need to do anything with it.
+    console.log(`Received heartbeat from ${socket.id}`);
   });
 });
 

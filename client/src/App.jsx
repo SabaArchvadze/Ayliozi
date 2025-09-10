@@ -214,6 +214,16 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (socket.connected) {
+        socket.emit('heartbeat', 'ping');
+      }
+    }, 25000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   if (isReconnecting) {
     return (
       <div className="app-container" style={{
