@@ -50,7 +50,7 @@ export function GameOver({ finalWinner, players, myId }) {
       )}
 
       <p className="returning-text">Returning to lobby...</p>
-      <CountdownTimer duration={10} />
+      <CountdownTimer duration={7} />
     </div>
   );
 }

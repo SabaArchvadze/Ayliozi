@@ -316,11 +316,70 @@ button:disabled {
 .scoreboard li {
   display: grid;
   /* New 5-column layout: Rank | Status | Name | Kick | Score */
-  grid-template-columns: 30px 30px 1fr 30px;
   gap: 2px;
   align-items: center;
   padding: 5px 0;
   font-size: 1.1em;
+}
+
+.scoreboard li.is-me .player-name {
+  color: var(--text-color);
+  font-weight: 700;
+}
+
+/* Compact styles for medium-sized games (6-9 players) */
+.scoreboard.scoreboard-medium li {
+  font-size: 0.95em;
+  padding: 3px 0;
+  gap: 2px;
+}
+
+/* More compact styles for large games (10+ players) */
+.scoreboard.scoreboard-large li {
+  font-size: 0.9em;
+  padding: 2px 0;
+  gap: 1px;
+}
+
+/* The two-column grid container for large games */
+.scoreboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Two equal columns */
+  gap: 0 20px; /* 20px gap between the columns */
+  position: relative;
+}
+
+/* The vertical line between the two columns */
+.scoreboard-grid::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: var(--border-color);
+  transform: translateX(-50%);
+}
+
+.scoreboard-column {
+  list-style-type: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* We need to adjust the li grid slightly for the new layout */
+.scoreboard li {
+  grid-template-columns: 15px 25px 1fr 30px; /* Rank | Status | Name | Score */
+}
+
+/* Adjust player name to not overflow */
+.player-name {
+  max-width: 120px;
+}
+.scoreboard.scoreboard-large .player-name {
+  max-width: 100px;
 }
 
 .player-rank {
@@ -372,6 +431,38 @@ button:disabled {
 
 .czar-icon {
   color: #888;
+}
+
+.czar-icon,
+.submitted-icon {
+  font-size: 0.9em; /* Reduce icon size slightly */
+  width: 0.9em; /* Ensure icons take up consistent space */
+  height: 0.9em;
+  display: flex; /* Use flex to center if needed */
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+
+/* Adjust player name max-width to allow more space */
+.player-name {
+  max-width: 100%; /* Allow name to take up available space */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis; /* Add ellipsis for long names if they still get cut off */
+}
+
+/* Specific adjustments for scoreboard-medium and scoreboard-large */
+.scoreboard.scoreboard-medium .player-name {
+  max-width: 100%; /* Ensure it uses all space */
+}
+.scoreboard.scoreboard-large .player-name {
+  max-width: 100%; /* Ensure it uses all space */
+}
+
+/* Re-adjust the scoreboard-grid gap for two columns */
+.scoreboard-grid {
+  gap: 0 10px; /* Reduce horizontal gap between the two columns */
 }
 
 .submitted-icon {

@@ -7,57 +7,59 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import imageCompression from 'browser-image-compression';
 
-function Scoreboard({ players, czarId, submissions = [], isOwner, myId, onKickPlayer, isMobile }) {
+function Scoreboard({ players, czarId, submissions = [], myId }) {
+  // 1. We always start by sorting all players by score.
   const rankedPlayers = [...players].sort((a, b) => b.score - a.score);
 
-  // On mobile, show Top 2. On desktop, show Top 3.
-  const topCount = isMobile ? 2 : 3;
-  const topPlayers = rankedPlayers.slice(0, topCount);
+  // 2. Determine the CSS class based on player count for dynamic sizing.
+  let scoreboardClass = '';
+  if (players.length >= 7) {
+    scoreboardClass = 'scoreboard-large';
+  } else if (players.length > 4) {
+    scoreboardClass = 'scoreboard-medium';
+  }
 
-  const me = rankedPlayers.find(p => p.socketId === myId);
-  const myRank = rankedPlayers.findIndex(p => p.socketId === myId) + 1;
-  const amInTop = me && (myRank <= topCount);
+  // 3. For large games, we need to split the players into two columns.
+  const isLargeGame = players.length >= 7;
+  const halfwayPoint = Math.ceil(rankedPlayers.length / 2);
+  const leftColumnPlayers = isLargeGame ? rankedPlayers.slice(0, halfwayPoint) : [];
+  const rightColumnPlayers = isLargeGame ? rankedPlayers.slice(halfwayPoint) : [];
+
+  // This is a reusable function to render a single player row.
+  const renderPlayerRow = (player, index, rankOffset = 0) => {
+    const isCzar = player.playerId === czarId;
+    const hasSubmitted = !isCzar && submissions.some(s => s.playerId === player.playerId);
+    return (
+      <li key={player.playerId} className={player.socketId === myId ? 'is-me' : ''}>
+        <span className="player-rank">{rankOffset + index + 1}.</span>
+        <div className="player-status-icons">
+          {isCzar && <FaCrown className="czar-icon" title="Card Czar" />}
+          {hasSubmitted && <FaCheck className="submitted-icon" title="Submitted" />}
+        </div>
+        <span className="player-name" title={player.username}>{player.username}</span>
+        <span className="player-score">{player.score}</span>
+      </li>
+    );
+  };
 
   return (
-    <div className="scoreboard">
+    <div className={`scoreboard ${scoreboardClass}`}>
       <h3>Scores</h3>
-      <ul>
-        {topPlayers.map((p, index) => {
-          const isCzar = p.playerId === czarId;
-          const hasSubmitted = !isCzar && submissions.some(s => s.playerId === p.playerId);
-          return (
-            <li key={p.playerId}>
-              {/* We move the rank outside the icon div for alignment */}
-              <span className="player-rank">{index + 1}.</span>
-              <div className="player-status-icons">
-                {isCzar && <FaCrown className="czar-icon" title="Card Czar" />}
-                {hasSubmitted && <FaCheck className="submitted-icon" title="Submitted" />}
-              </div>
-              <span className="player-name" title={p.username}>{p.username}</span>
-              <span className="player-score">{p.score}</span>
-            </li>
-          );
-        })}
-      </ul>
-
-      {isMobile && amInTop && players.length > topCount && (
-        <div style={{ textAlign: 'center', color: '#888', letterSpacing: '3px' }}>
-          ...
-        </div>
-      )}
-      {!amInTop && me && (
-        <>
-          <div className="line-separator"></div>
-          <ul className="your-score">
-            <li>
-              <span className="player-rank">{myRank}.</span>
-              {/* Empty div for status icon alignment */}
-              <div className="player-status-icons"></div>
-              <span className="player-name-ingame" title={me.username}>{me.username}</span>
-              <span className="player-score">{me.score}</span>
-            </li>
+      {isLargeGame ? (
+        // 4. If it's a large game, render the two-column grid.
+        <div className="scoreboard-grid">
+          <ul className="scoreboard-column">
+            {leftColumnPlayers.map((p, index) => renderPlayerRow(p, index))}
           </ul>
-        </>
+          <ul className="scoreboard-column">
+            {rightColumnPlayers.map((p, index) => renderPlayerRow(p, index, halfwayPoint))}
+          </ul>
+        </div>
+      ) : (
+        // 5. Otherwise, render the standard single-column list.
+        <ul>
+          {rankedPlayers.map((p, index) => renderPlayerRow(p, index))}
+        </ul>
       )}
     </div>
   );
@@ -128,7 +130,7 @@ function RoundWinner({ winnerInfo, prompt }) {
           </div>
         ))}
       </div>
-      <CountdownTimer duration={5} />
+      <CountdownTimer duration={3} />
     </div>
   );
 }
@@ -252,7 +254,7 @@ function useTemporaryDesktopViewport(desktopWidth = 1100) {
 }
 
 export function Game(props) {
-  console.log(`--- GAME STATE ---`, { myId: props.myId, roomData: props.roomData });
+
   const { roomData, myId, roundWinnerInfo, firstCardPlayed, notification, messages, setError } = props;
   const { roomCode, currentCzar, currentPrompt, players, revealedSubmissions, submissions = [], phase, settings } = roomData;
 

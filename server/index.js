@@ -470,7 +470,7 @@ io.on('connection', (socket) => {
       // After 5s (for the RoundWinner overlay), tell clients to show the GameOver screen.
       setTimeout(() => {
         io.to(roomCode).emit('gameOver', { winner });
-      }, 5000);
+      }, 3000);
 
       // After 15s total, send everyone back to the lobby.
       setTimeout(() => {
@@ -482,14 +482,14 @@ io.on('connection', (socket) => {
           roomToReset.currentCzar = roomToReset.players[0];
           io.to(roomCode).emit('backToLobby', { ...roomToReset, roomCode: roomCode });
         }
-      }, 15000);
+      }, 10000);
 
     } else {
       // ----- GAME IS NOT OVER -----
       // After 5s, start the next round normally.
       setTimeout(() => {
         startNewRound(roomCode, "Starting the next round...", true, false);
-      }, 5000);
+      }, 3000);
     }
   });
 
