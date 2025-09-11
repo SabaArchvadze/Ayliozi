@@ -145,11 +145,29 @@ function GameNotification({ message }) {
 
 function InGameChat({ roomCode, players, myId, messages }) {
   const [chatInput, setChatInput] = useState('');
-  const chatEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = chatContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [messages]);
+
+  useEffect(() => {
+    const inputElement = inputRef.current;
+    if (!inputElement) return;
+    const handleFocus = () => {
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+      }, 100);
+    };
+    inputElement.addEventListener('focus', handleFocus);
+    return () => {
+      inputElement.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
   const handleSendMessage = (e) => {
     if (e.key === 'Enter' && chatInput.trim() !== '') {
@@ -161,16 +179,16 @@ function InGameChat({ roomCode, players, myId, messages }) {
 
   return (
     <div className="in-game-chat">
-      <div className="chat-messages">
+      <div className="chat-messages" ref={chatContainerRef}>
         {messages.map((msg, index) => (
           <div key={index} className={msg.type === 'system' ? 'system-message' : 'player-message'}>
             {msg.type === 'player' && <strong>{msg.sender}: </strong>}
             {msg.message}
           </div>
         ))}
-        <div ref={chatEndRef} />
       </div>
       <input
+        ref={inputRef}
         type="text"
         placeholder="Type a message..."
         value={chatInput}
@@ -264,52 +282,49 @@ export function Game(props) {
   }, []); // No dependencies needed as it uses functional updates
 
   const uploadImage = useCallback(async (file) => {
-  if (!file) return;
-  
-  // The check for imageCreationsLeft now happens at the very start
-  if (imageCreationsLeft <= 0) {
-    setError("No image creations left for this round.");
-    return;
-  }
+    if (!file) return;
 
-  setIsValidating(true);
-  setError('');
+    if (imageCreationsLeft <= 0) {
+      setError("No image creations left for this round.");
+      return;
+    }
 
-  // --- NEW COMPRESSION LOGIC ---
-  console.log(`Original image size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+    setIsValidating(true);
+    setError('');
 
-  const options = {
-    maxSizeMB: 1,          // Max file size in megabytes
-    maxWidthOrHeight: 800, // Resize the image to be max 800px on its longest side
-    useWebWorker: true,    // Use a separate thread for compression
-  };
+    console.log(`Original image size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+    const options = {
+      maxSizeMB: 1,
+      maxWidthOrHeight: 800,
+      useWebWorker: true,
+    };
 
-  try {
-    const compressedFile = await imageCompression(file, options);
-    console.log(`Compressed image size: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
-    
-    // --- UPLOAD LOGIC (now uses the compressedFile) ---
-    const formData = new FormData();
-    formData.append('image', compressedFile); // We send the smaller file
+    try {
+      const compressedFile = await imageCompression(file, options);
+      console.log(`Compressed image size: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`);
 
-    const response = await fetch('https://ayliozi-game-server.onrender.com/api/upload-image', { // Or your env variable
-      method: 'POST',
-      body: formData,
-    });
-    const data = await response.json();
-    if (!response.ok || !data.success) throw new Error(data.message || 'Upload failed.');
-    
-    const newImageCard = { id: `image-${Date.now()}`, type: 'image', content: data.url };
-    setLocalHand(prevHand => [newImageCard, ...prevHand]);
-    setImageCreationsLeft(prev => prev - 1);
+      const formData = new FormData();
+      formData.append('image', compressedFile);
 
-  } catch (err) {
-    setError(err.message);
-    console.error(err);
-  } finally {
-    setIsValidating(false);
-  }
-}, [imageCreationsLeft]);
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/upload-image`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || 'Upload failed.');
+
+      const newImageCard = { id: `image-${Date.now()}`, type: 'image', content: data.url };
+      setLocalHand(prevHand => [newImageCard, ...prevHand]);
+      setImageCreationsLeft(prev => prev - 1);
+
+    } catch (err) {
+      setError(err.message);
+      console.error(err);
+    } finally {
+      setIsValidating(false);
+    }
+  }, [imageCreationsLeft]);
 
   const handleGlobalPaste = useCallback((event) => {
     const items = event.clipboardData.items;

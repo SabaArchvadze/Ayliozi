@@ -39,7 +39,7 @@ export function Home({ error, setError }) {
     setReportStatus('Sending...');
 
     try {
-      const response = await fetch('http://localhost:3001/api/report-bug', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/report-bug`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ report: reportContent }),
