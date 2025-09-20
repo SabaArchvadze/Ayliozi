@@ -8,6 +8,7 @@ const fetch = require('node-fetch');
 
 const axios = require('axios');
 const multer = require('multer');
+const FormData = require('form-data');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -150,16 +151,16 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
 
   try {
     const apiKey = process.env.IMGBB_API_KEY;
-    // ImgBB requires the image to be sent as a base64 string in the form data.
-    const imageAsBase64 = req.file.buffer.toString('base64');
 
-    // We use URLSearchParams to format the body correctly.
-    const formData = new URLSearchParams();
-    formData.append('image', imageAsBase64);
+    // Create a new form and append the image buffer directly.
+    // This avoids the Base64 conversion.
+    const formData = new FormData();
+    formData.append('image', req.file.buffer, { filename: req.file.originalname });
 
     const response = await axios.post(`https://api.imgbb.com/1/upload?key=${apiKey}`, formData, {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        // The form-data library generates the correct headers for us
+        ...formData.getHeaders(),
       },
     });
 
@@ -197,41 +198,41 @@ io.on('connection', (socket) => {
   });
 
   socket.on('changeSettings', (data) => {
-  const { roomCode, newSettings } = data;
-  const room = gameRooms[roomCode];
+    const { roomCode, newSettings } = data;
+    const room = gameRooms[roomCode];
 
-  if (room && room.players[0].socketId === socket.id) {
-    // --- VVV THIS IS THE NEW VALIDATION LOGIC VVV ---
+    if (room && room.players[0].socketId === socket.id) {
+      // --- VVV THIS IS THE NEW VALIDATION LOGIC VVV ---
 
-    // 1. Define the valid ranges for your settings.
-    const limits = {
-      pointsToWin: { min: 3, max: 20 },
-      maxPlayers: { min: 3, max: 12 },
-      handSize: { min: 5, max: 15 },
-    };
+      // 1. Define the valid ranges for your settings.
+      const limits = {
+        pointsToWin: { min: 3, max: 20 },
+        maxPlayers: { min: 3, max: 12 },
+        handSize: { min: 5, max: 15 },
+      };
 
-    // 2. Validate and clamp the incoming setting value.
-    const settingKey = Object.keys(newSettings)[0]; // e.g., "maxPlayers"
-    const incomingValue = newSettings[settingKey];
-    
-    // Make sure the value is a number before validating
-    if (settingKey && typeof incomingValue === 'number' && !isNaN(incomingValue)) {
-      const validValue = Math.max(
-        limits[settingKey].min,
-        Math.min(limits[settingKey].max, incomingValue)
-      );
-      
-      // 3. Apply the *validated* value to the room settings.
-      room.settings[settingKey] = validValue;
-    }
-    // --- ^^^ END OF NEW LOGIC ^^^ ---
+      // 2. Validate and clamp the incoming setting value.
+      const settingKey = Object.keys(newSettings)[0]; // e.g., "maxPlayers"
+      const incomingValue = newSettings[settingKey];
 
-    // The rest of the debouncing logic remains the same
-    clearTimeout(roomTimeouts[roomCode]);
+      // Make sure the value is a number before validating
+      if (settingKey && typeof incomingValue === 'number' && !isNaN(incomingValue)) {
+        const validValue = Math.max(
+          limits[settingKey].min,
+          Math.min(limits[settingKey].max, incomingValue)
+        );
+
+        // 3. Apply the *validated* value to the room settings.
+        room.settings[settingKey] = validValue;
+      }
+      // --- ^^^ END OF NEW LOGIC ^^^ ---
+
+      // The rest of the debouncing logic remains the same
+      clearTimeout(roomTimeouts[roomCode]);
 
       io.to(roomCode).emit('settingsUpdated', { settings: room.settings });
-  }
-});
+    }
+  });
 
   socket.on('joinGame', (data) => {
     const { roomCode, username } = data;

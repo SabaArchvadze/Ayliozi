@@ -28,11 +28,6 @@ body {
   left: 0;
 }
 
-body.desktop-viewport-active {
-  position: static; /* Override the global 'position: fixed' */
-  overflow: auto;   /* Ensure the user can pan and zoom if needed */
-}
-
 .no-scroll {
   overflow-y: hidden;
 }
@@ -50,7 +45,12 @@ body.desktop-viewport-active {
   gap: 20px;
   align-items: flex-start;
   text-align: center;
-  min-width: 1100px;
+  width: 100%;
+  /* Take up full width of its container */
+  max-width: 1900px;
+  /* Set a max-width for very large screens */
+  min-height: 100vh;
+
 }
 
 .game-board {
@@ -344,8 +344,10 @@ button:disabled {
 /* The two-column grid container for large games */
 .scoreboard-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* Two equal columns */
-  gap: 0 20px; /* 20px gap between the columns */
+  grid-template-columns: 1fr 1fr;
+  /* Two equal columns */
+  gap: 0 20px;
+  /* 20px gap between the columns */
   position: relative;
 }
 
@@ -371,13 +373,15 @@ button:disabled {
 
 /* We need to adjust the li grid slightly for the new layout */
 .scoreboard li {
-  grid-template-columns: 15px 25px 1fr 30px; /* Rank | Status | Name | Score */
+  grid-template-columns: 15px 25px 1fr 30px;
+  /* Rank | Status | Name | Score */
 }
 
 /* Adjust player name to not overflow */
 .player-name {
   max-width: 120px;
 }
+
 .scoreboard.scoreboard-large .player-name {
   max-width: 100px;
 }
@@ -435,10 +439,13 @@ button:disabled {
 
 .czar-icon,
 .submitted-icon {
-  font-size: 0.9em; /* Reduce icon size slightly */
-  width: 0.9em; /* Ensure icons take up consistent space */
+  font-size: 0.9em;
+  /* Reduce icon size slightly */
+  width: 0.9em;
+  /* Ensure icons take up consistent space */
   height: 0.9em;
-  display: flex; /* Use flex to center if needed */
+  display: flex;
+  /* Use flex to center if needed */
   align-items: center;
   justify-content: center;
   margin-right: 10px;
@@ -446,23 +453,29 @@ button:disabled {
 
 /* Adjust player name max-width to allow more space */
 .player-name {
-  max-width: 100%; /* Allow name to take up available space */
+  max-width: 100%;
+  /* Allow name to take up available space */
   overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis; /* Add ellipsis for long names if they still get cut off */
+  text-overflow: ellipsis;
+  /* Add ellipsis for long names if they still get cut off */
 }
 
 /* Specific adjustments for scoreboard-medium and scoreboard-large */
 .scoreboard.scoreboard-medium .player-name {
-  max-width: 100%; /* Ensure it uses all space */
+  max-width: 100%;
+  /* Ensure it uses all space */
 }
+
 .scoreboard.scoreboard-large .player-name {
-  max-width: 100%; /* Ensure it uses all space */
+  max-width: 100%;
+  /* Ensure it uses all space */
 }
 
 /* Re-adjust the scoreboard-grid gap for two columns */
 .scoreboard-grid {
-  gap: 0 10px; /* Reduce horizontal gap between the two columns */
+  gap: 0 10px;
+  /* Reduce horizontal gap between the two columns */
 }
 
 .submitted-icon {
@@ -505,10 +518,8 @@ button:disabled {
 .submission-group {
   display: flex;
   gap: 10px;
-  /* Space between cards in a multi-card answer */
-  padding: 10px;
-  border-radius: 12px;
-  border: 2px solid transparent;
+  border-radius: 16px;
+  border: 4px solid transparent;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
 }
@@ -516,7 +527,7 @@ button:disabled {
 /* This makes the whole group glow when the Czar hovers over it */
 .submission-group.czar-view:hover {
   border-color: var(--accent-color);
-  background-color: rgba(229, 57, 53, 0.1);
+  background-color: none;
 }
 
 /* Make the Czar's disabled hand look different */
@@ -829,19 +840,6 @@ button:disabled {
   text-align: left;
 }
 
-.kick-player-list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 1.2em;
-  padding: 10px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.kick-player-list li:last-child {
-  border-bottom: none;
-}
-
 .lobby-background {
   filter: brightness(0.05);
 }
@@ -937,6 +935,7 @@ button:disabled {
   border-radius: 8px;
   padding: 10px;
   min-height: 0;
+  max-height: 400px;
 }
 
 .image-submit-container {
@@ -1009,7 +1008,7 @@ button.card.image-card img {
   position: absolute;
   top: 25px;
   left: 25px;
-  background: transparent;
+  background: none;
   border: none;
   padding: 5px;
   font-size: 2.5em;
@@ -1017,14 +1016,18 @@ button.card.image-card img {
   color: var(--icon-color);
   cursor: pointer;
   z-index: 10;
-  transition: color 0.2s;
+  transition: 0.2s;
 }
 
 .back-button:hover {
   color: var(--text-color);
-  /* Override default button hover effects */
-  background-color: transparent;
+  font-size: 2.8em;
+  background: none;
   transform: none;
+}
+
+.back-button::before {
+  background: none;
 }
 
 .confirmation-overlay {
@@ -1056,18 +1059,9 @@ button.card.image-card img {
 }
 
 .confirmation-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-}
-
-.confirmation-buttons button.danger {
-  background-color: #E53935;
-  /* A red color for danger actions */
-}
-
-.confirmation-buttons button.danger:hover {
-  background-color: #c62828;
+  position: absolute;
+  top:0;
+  right:18%
 }
 
 .report-button {
@@ -1328,7 +1322,7 @@ button.card.image-card img {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 50;
   /* Make sure it's above other elements */
 }
 
@@ -1345,9 +1339,11 @@ button.card.image-card img {
 }
 
 .kick-player-list li {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width:100%;
   font-size: 1.2em;
   padding: 10px;
   border-bottom: 1px solid var(--border-color);
@@ -1585,9 +1581,17 @@ button.card.image-card img {
 }
 
 @keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
 
 .delete-image-button {
@@ -1595,7 +1599,8 @@ button.card.image-card img {
   bottom: -5px;
   right: -5px;
   z-index: 10;
-  background-color: #E53935; /* Red */
+  background-color: #E53935;
+  /* Red */
   color: white;
   border: 2px solid var(--background-color);
   border-radius: 50%;
@@ -1607,13 +1612,14 @@ button.card.image-card img {
   font-size: 14px;
   cursor: pointer;
   padding: 0;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
   transition: transform 0.2s, background-color 0.2s;
 }
 
 .delete-image-button:hover {
   transform: scale(1.1);
-  background-color: #c62828; /* Darker Red */
+  background-color: #c62828;
+  /* Darker Red */
 }
 
 /* Update instructions for the upload card */
@@ -1624,6 +1630,222 @@ button.card.image-card img {
   line-height: 1.3;
 }
 
+.rotate-device-overlay {
+  /* Hidden by default on desktop */
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  text-align: center;
+}
+
+.rotate-device-icon {
+  font-size: 5em;
+  margin-bottom: 1rem;
+}
+
+.mobile-ui-container {
+  position: fixed;
+  inset: 0;
+  /* Cover the entire screen */
+  z-index: 50;
+  /* Sit on top of the game, but below modals */
+  pointer-events: none;
+  /* Make the container itself invisible to clicks */
+}
+
+/* Make the buttons and overlays inside the container clickable again */
+.mobile-ui-container>* {
+  pointer-events: auto;
+}
+
+.player-hand-container {
+  position: relative;
+  width: 100%;
+}
+
+/* This positions the button on top of the layout, not inside it */
+.submit-button {
+  position: absolute;
+  bottom: -50px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: 12px 25px;
+  font-size: 1.1em;
+}
+
+.mobile-action-buttons {
+  display: none;
+}
+
+@media (max-width: 1023px) and (orientation: landscape) {
+
+  /* --- Main Layout: Horizontal with two columns --- */
+  .game-layout {
+    flex-direction: row;
+    align-items: stretch;
+    height: 100vh;
+    padding: 10px;
+  }
+
+  .mobile-overlay-container {
+    width: 100%;
+    position: relative;
+    top: 25%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+  }
+
+  .mobile-overlay-container div {
+    width: 500px;
+    flex-grow: 0;
+  }
+
+  .in-game-chat {
+    height: 200px;
+    position: absolute;
+    display: flex;
+    justify-content: space-between;
+    top: 50%;
+  }
+
+  .mobile-overlay-container button {
+    position: absolute;
+    top: 4%;
+    right: 23%;
+    background: none;
+    font-size: 1.3em;
+  }
+
+  .game-sidebar {
+    display: none;
+  }
+
+  .game-board {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 10px;
+  }
+
+  /* --- Column Sizing and Alignment --- */
+  .mobile-prompt-area {
+    flex-basis: 30%;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    /* Stacks card and czar text */
+    justify-content: center;
+    align-items: center;
+    gap: 0px;
+  }
+
+  .mobile-main-area {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    /* Stack the "Your Hand" text above the cards */
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+  }
+
+  /* --- Card Sizing --- */
+  .mobile-prompt-area .prompt-card {
+    transform: scale(0.7);
+  }
+
+  .player-hand-container .card-container {
+    gap: 8px;
+  }
+
+  .overlay-spotlight {
+    position: absolute;
+    top: -150px;
+    left: -200px;
+    width: calc(100% + 1000px);
+    height: calc(100% + 400px);
+    opacity: 0.1;
+    pointer-events: none;
+  }
+
+  .spotlight-svg{
+    animation: spotlight 0.3s ease-out forwards;
+  }
+
+  .overlay-backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 99;
+    backdrop-filter: blur(4px);
+  }
+
+  .player-hand-container {
+    transform: scale(0.6);
+    width: 1000px
+  }
+
+  .revealed-cards-area .card,
+  .revealed-cards-area .card-deck {
+    transform: scale(0.9);
+  }
+
+  /* --- Button Visibility --- */
+  .mobile-action-buttons {
+    display: flex;
+    position: fixed;
+    bottom: 15px;
+    left: 15px;
+    z-index: 50;
+    gap: 10px;
+  }
+}
+
+/* Hide the "rotate device" message by default (on PC) */
+.rotate-device-overlay {
+  display: none;
+}
+
+@media (max-width: 1023px) and (orientation: portrait) {
+
+  /* Only hide the main game UI when we're in the actual game */
+  body.in-game .game-layout,
+  body.in-game .game-over-overlay {
+    display: none !important;
+  }
+
+  /* ensure lobby/home remain visible in portrait unless you want them hidden */
+  /* body.in-game .lobby-screen, etc. can be added above if you want them hidden too. */
+
+  /* Show rotate overlay only while in-game on portrait phones/tablets */
+  body.in-game .rotate-device-overlay {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    text-align: center;
+  }
+
+  /* (optional) tweak icon size if needed */
+  body.in-game .rotate-device-icon {
+    font-size: 5em;
+    margin-bottom: 1rem;
+  }
+}
 
 /* =================================== */
 /* ======== RESPONSIVE STYLES ======== */
@@ -1905,5 +2127,53 @@ button.card.image-card img {
   html,
   body {
     overflow-x: hidden;
+  }
+
+  .game-layout {
+    flex-direction: column;
+  }
+
+  /* On mobile, HIDE the original chat and info components in the sidebar */
+  .game-sidebar .in-game-chat,
+  .game-sidebar .game-info-display {
+    display: none !important;
+  }
+
+
+  .overlay-spotlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.15;
+    pointer-events: none;
+  }
+
+  .mobile-overlay-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+
+  .mobile-overlay-header h3 {
+    margin: 0;
+  }
+
+  .mobile-overlay-header button {
+    background: none;
+    border: none;
+    font-size: 1.5em;
+    padding: 5px;
+    color: var(--icon-color);
+  }
+
+  body:has(.game-layout) {
+    background-color: var(--background-color);
+  }
+
+  .rotate-device-icon {
+    font-size: 5em;
+    margin-bottom: 1rem;
   }
 }

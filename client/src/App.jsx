@@ -6,6 +6,22 @@ import { Lobby } from './components/Lobby';
 import { Game } from './components/Game';
 import { GameOver } from './components/GameOver';
 import { motion, AnimatePresence } from 'framer-motion';
+import { IoPhoneLandscapeOutline, IoChatbubblesSharp, IoInformationCircleSharp } from "react-icons/io5";
+import { FaTimes, FaTrophy } from 'react-icons/fa'
+import { InGameChat } from './components/InGameChat';
+import { GameInfoDisplay } from './components/GameInfoDisplay';
+import { Scoreboard } from './components/Scoreboard';
+import { Spotlight } from './components/Spotlight';
+import { KickPlayerModal } from './components/KickPlayerModal';
+
+function RotateDeviceOverlay() {
+  return (
+    <div className="rotate-device-overlay">
+      <IoPhoneLandscapeOutline className="rotate-device-icon" />
+      <p>Please rotate your device to play</p>
+    </div>
+  );
+}
 
 export default function App() {
   const [view, setView] = useState('home');
@@ -19,6 +35,24 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isReconnecting, setIsReconnecting] = useState(true);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isScoreboardOpen, setIsScoreboardOpen] = useState(false);
+  const [showKickModal, setShowKickModal] = useState(false);
+
+  const handleOpenOverlay = (overlayName) => {
+    setIsChatOpen(overlayName === 'chat');
+    setIsInfoOpen(overlayName === 'info');
+    setIsScoreboardOpen(overlayName === 'scoreboard');
+  };
+
+  const handleKickPlayer = (playerId) => {
+    const roomCode = gameData?.roomCode;
+    if (roomCode) {
+      socket.emit('kickPlayer', { roomCode, playerIdToKick: playerId });
+    }
+    setShowKickModal(false);
+  };
 
   useEffect(() => {
     const session = JSON.parse(localStorage.getItem('game_session'));
@@ -75,6 +109,7 @@ export default function App() {
 
     const handleSuccessfulJoin = (data) => {
       setMyId(data.me.socketId);
+      setMe(data.me);
 
       const session = {
         playerId: data.me.playerId,
@@ -130,7 +165,10 @@ export default function App() {
       }
     };
 
-    const onGameUpdate = (data) => { setGameData(data); setView('game'); };
+    const onGameUpdate = (data) => {
+      setGameData(data);
+      setView('game');
+    };
     const onPartialGameUpdate = (data) => { setGameData(prev => ({ ...prev, ...data })); };
     const onNewMessage = (newMessage) => { setMessages(prev => [...prev, newMessage]); };
     const onNewRound = (data) => {
@@ -224,6 +262,16 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (view === 'game') {
+      document.body.classList.add('in-game');
+    } else {
+      document.body.classList.remove('in-game');
+    }
+    // cleanup just in case:
+    return () => document.body.classList.remove('in-game');
+  }, [view]);
+
   if (isReconnecting) {
     return (
       <div className="app-container" style={{
@@ -238,62 +286,153 @@ export default function App() {
   }
 
   return (
-    <AnimatePresence mode="wait">
-      {/* The "key" is crucial for AnimatePresence to track which component is on screen */}
-      
-      {view === 'home' && (
-        <motion.div
-          key="home"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <Home error={error} setError={setError} />
-        </motion.div>
-      )}
+    <>
+      <RotateDeviceOverlay />
 
-      {view === 'lobby' && gameData && (
-        <motion.div
-          key="lobby"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.5 }}
-        >
-          <Lobby roomData={gameData} myId={myId} messages={messages} />
-        </motion.div>
-      )}
+      {/* This container now ONLY handles switching between the main views */}
+      <AnimatePresence mode="wait">
+        {view === 'home' && (
+          <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
+            <Home error={error} setError={setError} />
+          </motion.div>
+        )}
 
-      {/* --- ADDED ANIMATIONS FOR GAME AND GAMEOVER --- */}
+        {view === 'lobby' && gameData && (
+          <motion.div key="lobby" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.5 }}>
+            <Lobby roomData={gameData} myId={myId} messages={messages} />
+          </motion.div>
+        )}
+
+        {view === 'game' && gameData && (
+          <motion.div key="game" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.5 }}>
+            <Game
+              roomData={gameData} myId={myId} roundWinnerInfo={roundWinnerInfo}
+              firstCardPlayed={firstCardPlayed} notification={notification}
+              messages={messages} error={error} setError={setError}
+              setShowKickModal={setShowKickModal}
+              setIsChatOpen={setIsChatOpen} setIsInfoOpen={setIsInfoOpen} me={me}
+            />
+          </motion.div>
+        )}
+
+        {view === 'gameover' && (
+          <motion.div key="gameover" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={{ duration: 0.5 }}>
+            <GameOver finalWinner={finalWinner} players={gameData.players} roomCode={gameData.roomCode} myId={myId} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --- NEW: This is a dedicated container for ALL mobile UI overlays and buttons --- */}
+      {/* It sits on top of everything else and is only active during the game view. */}
       {view === 'game' && gameData && (
-        <motion.div
-          key="game"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.5 }}
-        >
-          <Game roomData={gameData} myId={myId} roundWinnerInfo={roundWinnerInfo} firstCardPlayed={firstCardPlayed} notification={notification} messages={messages} error={error} setError={setError} />
-        </motion.div>
-      )}
+        <div className="mobile-ui-container">
+          <div className="mobile-action-buttons">
+            <button onClick={() => handleOpenOverlay('scoreboard')} title="Scores"><FaTrophy /></button>
+            <button onClick={() => handleOpenOverlay('chat')} title="Open Chat"><IoChatbubblesSharp /></button>
+            <button onClick={() => handleOpenOverlay('info')} title="Game Info"><IoInformationCircleSharp /></button>
+          </div>
 
-      {view === 'gameover' && (
-        <motion.div
-          key="gameover"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          transition={{ duration: 0.5 }}
-        >
-          <GameOver
-            finalWinner={finalWinner}
-            players={gameData.players}
-            roomCode={gameData.roomCode}
-            myId={myId}
-          />
-        </motion.div>
+          <AnimatePresence>
+            {isScoreboardOpen && (
+              <>
+                <motion.div
+                  className="overlay-backdrop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                />
+                <motion.div
+                  className="mobile-overlay-container"
+                  initial={{ opacity: 0, scale: 0.8 }} // Animate from center
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <Spotlight className="overlay-spotlight" fill="white" />
+                  <button onClick={() => handleOpenOverlay(null)}><FaTimes /></button>
+                  <Scoreboard players={gameData.players} czarId={gameData.currentCzar?.playerId} submissions={gameData.submissions} myId={myId} />
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {isChatOpen && (
+              <>
+                <motion.div
+                  className="overlay-backdrop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                />
+                <motion.div
+                  className="mobile-overlay-container"
+                  initial={{ opacity: 0, scale: 0.8 }} // Animate from center
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <Spotlight className="overlay-spotlight" fill="white" />
+                  <button onClick={() => handleOpenOverlay(null)}><FaTimes /></button>
+                  <InGameChat roomCode={gameData.roomCode} players={gameData.players} me={me} messages={messages} />
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {isInfoOpen && (
+              <>
+                <motion.div
+                  className="overlay-backdrop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                />
+                <motion.div
+                  className="mobile-overlay-container"
+                  initial={{ opacity: 0, scale: 0.8 }} // Animate from center
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <Spotlight className="overlay-spotlight" fill="white" />
+                  <button onClick={() => handleOpenOverlay(null)}><FaTimes /></button>
+                  <GameInfoDisplay settings={gameData.settings} roomCode={gameData.roomCode} owner={gameData.players[0]} />
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {showKickModal && (
+              <>
+                <motion.div
+                  className="overlay-backdrop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                />
+                <motion.div
+                  className="mobile-overlay-container" // We reuse this class for consistent styling
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                >
+                  <Spotlight className="overlay-spotlight" fill="white" />
+                  {/* We pass the original modal component inside our new styled container */}
+                  <KickPlayerModal
+                    players={gameData.players}
+                    ownerId={gameData.players[0]?.playerId}
+                    onKick={handleKickPlayer}
+                    onClose={() => setShowKickModal(false)}
+                  />
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
       )}
-    </AnimatePresence>
+    </>
   );
 }
