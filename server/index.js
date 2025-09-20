@@ -8,6 +8,7 @@ const fetch = require('node-fetch');
 
 const axios = require('axios');
 const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -26,6 +27,13 @@ const RECONNECT_TIMEOUT_MS = 300000;
 const gameRooms = {};
 const roomTimeouts = {};
 const originalSettingsState = {};
+
+cloudinary.config({ 
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+  api_key: process.env.CLOUDINARY_API_KEY, 
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true
+});
 
 // Helper function to shuffle an array
 function shuffle(array) {
@@ -143,61 +151,26 @@ app.post('/api/report-bug', async (req, res) => {
   }
 });
 
-app.post('/api/upload-image', upload.single('image'), async (req, res) => {
+app.post('/api/upload-image', upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'No image file provided.' });
   }
 
-  // We use the 'https' module, which is built into Node.js
-  const https = require('https');
-
-  // We build the form data payload manually as a string
-  const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
-  let postData = `--${boundary}\r\n`;
-  postData += `Content-Disposition: form-data; name="image"; filename="image.png"\r\n`;
-  postData += `Content-Type: ${req.file.mimetype}\r\n\r\n`;
-
-  const payload = Buffer.concat([
-    Buffer.from(postData, 'utf8'),
-    req.file.buffer,
-    Buffer.from('\r\n--' + boundary + '--\r\n', 'utf8'),
-  ]);
-
-  const options = {
-    hostname: 'api.imgbb.com',
-    path: `/1/upload?key=${process.env.IMGBB_API_KEY}`,
-    method: 'POST',
-    headers: {
-      'Content-Type': `multipart/form-data; boundary=${boundary}`,
-      'Content-Length': payload.length,
-    },
-  };
-
-  const apiReq = https.request(options, (apiRes) => {
-    let data = '';
-    apiRes.on('data', (chunk) => { data += chunk; });
-    apiRes.on('end', () => {
-      try {
-        const jsonData = JSON.parse(data);
-        if (jsonData.success) {
-          res.status(200).json({ success: true, url: jsonData.data.url });
-        } else {
-          throw new Error(jsonData.error.message || 'ImgBB API returned an error.');
-        }
-      } catch (error) {
-        console.error('ImgBB upload failed on response parse:', error.message);
-        res.status(500).json({ success: false, message: 'Failed to upload image.' });
+  // Create a stream to upload the file buffer
+  const uploadStream = cloudinary.uploader.upload_stream(
+    { resource_type: 'image' },
+    (error, result) => {
+      if (error) {
+        console.error('Cloudinary upload failed:', error);
+        return res.status(500).json({ success: false, message: 'Failed to upload image.' });
       }
-    });
-  });
+      // On success, send back the secure URL
+      res.status(200).json({ success: true, url: result.secure_url });
+    }
+  );
 
-  apiReq.on('error', (error) => {
-    console.error('ImgBB upload failed on request:', error.message);
-    res.status(500).json({ success: false, message: 'Failed to upload image.' });
-  });
-
-  apiReq.write(payload);
-  apiReq.end();
+  // Pipe the file buffer from multer into the upload stream
+  uploadStream.end(req.file.buffer);
 });
 
 io.on('connection', (socket) => {
