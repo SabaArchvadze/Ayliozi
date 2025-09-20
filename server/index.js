@@ -8,7 +8,6 @@ const fetch = require('node-fetch');
 
 const axios = require('axios');
 const multer = require('multer');
-const FormData = require('form-data');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -149,32 +148,56 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
     return res.status(400).json({ success: false, message: 'No image file provided.' });
   }
 
-  try {
-    const apiKey = process.env.IMGBB_API_KEY;
+  // We use the 'https' module, which is built into Node.js
+  const https = require('https');
 
-    // Create a new form and append the image buffer directly.
-    // This avoids the Base64 conversion.
-    const formData = new FormData();
-    formData.append('image', req.file.buffer, { filename: req.file.originalname });
+  // We build the form data payload manually as a string
+  const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+  let postData = `--${boundary}\r\n`;
+  postData += `Content-Disposition: form-data; name="image"; filename="image.png"\r\n`;
+  postData += `Content-Type: ${req.file.mimetype}\r\n\r\n`;
 
-    const response = await axios.post(`https://api.imgbb.com/1/upload?key=${apiKey}`, formData, {
-      headers: {
-        // The form-data library generates the correct headers for us
-        ...formData.getHeaders(),
-      },
+  const payload = Buffer.concat([
+    Buffer.from(postData, 'utf8'),
+    req.file.buffer,
+    Buffer.from('\r\n--' + boundary + '--\r\n', 'utf8'),
+  ]);
+
+  const options = {
+    hostname: 'api.imgbb.com',
+    path: `/1/upload?key=${process.env.IMGBB_API_KEY}`,
+    method: 'POST',
+    headers: {
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      'Content-Length': payload.length,
+    },
+  };
+
+  const apiReq = https.request(options, (apiRes) => {
+    let data = '';
+    apiRes.on('data', (chunk) => { data += chunk; });
+    apiRes.on('end', () => {
+      try {
+        const jsonData = JSON.parse(data);
+        if (jsonData.success) {
+          res.status(200).json({ success: true, url: jsonData.data.url });
+        } else {
+          throw new Error(jsonData.error.message || 'ImgBB API returned an error.');
+        }
+      } catch (error) {
+        console.error('ImgBB upload failed on response parse:', error.message);
+        res.status(500).json({ success: false, message: 'Failed to upload image.' });
+      }
     });
+  });
 
-    if (!response.data || !response.data.success) {
-      throw new Error(response.data.error.message || 'ImgBB upload failed.');
-    }
-
-    const imageUrl = response.data.data.url;
-    res.status(200).json({ success: true, url: imageUrl });
-
-  } catch (error) {
-    console.error('ImgBB upload failed:', error.message);
+  apiReq.on('error', (error) => {
+    console.error('ImgBB upload failed on request:', error.message);
     res.status(500).json({ success: false, message: 'Failed to upload image.' });
-  }
+  });
+
+  apiReq.write(payload);
+  apiReq.end();
 });
 
 io.on('connection', (socket) => {
