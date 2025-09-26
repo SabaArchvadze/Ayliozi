@@ -2003,7 +2003,7 @@ button.card.image-card img {
   }
 
   .confirmation-box .confirmation-buttons {
-    margin-top: 0;
+    margin-top: -10px;
   }
 
   .error-message {
@@ -2140,6 +2140,11 @@ button.card.image-card img {
     height: 250px;
     grid-area: chat;
     width: 90%;
+    font-size: 12px;
+  }
+
+  .chat-container h4{
+    font-size: 16px;
   }
 
   .back-button {
