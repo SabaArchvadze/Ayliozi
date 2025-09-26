@@ -67,7 +67,7 @@ function GameNotification({ message }) {
 
 export function Game(props) {
 
-  const { roomData, myId, roundWinnerInfo, firstCardPlayed, notification, messages, setError, setShowKickModal} = props;
+  const { roomData, myId, roundWinnerInfo, firstCardPlayed, notification, messages, setError, setShowKickModal } = props;
   const { roomCode, currentCzar, currentPrompt, players, revealedSubmissions, submissions = [], phase, settings } = roomData;
 
   const isMobile = useMediaQuery('(max-width: 1023px)');
@@ -347,8 +347,41 @@ export function Game(props) {
             {phase === 'submitting' && (
               <div className="player-hand-container">
                 <h4>Your Hand:</h4>
-                <PlayerHand hand={localHand} isMobile={false} hasSubmitted={hasSubmitted} selectedCards={selectedCards} onSelectCard={handleSelectCard} imageSubmitterProps={{ imageCreationsLeft, isUploading: isValidating }} onDeleteImageCard={handleDeleteImageCard} onImageUpload={uploadImage} />
-                {canConfirmSubmission && !hasSubmitted && (<button className="submit-button" onClick={handleConfirmSubmission}>Confirm Submission</button>)}
+                <p className="error-message">{props.error}</p>
+
+                {/* --- THIS IS THE NEW, CORRECTED LOGIC --- */}
+                {isCzar ? (
+                  // --- CZAR'S HAND (Mobile) ---
+                  <PlayerHand
+                    hand={me?.hand}
+                    isMobile={false} // Use false to show all cards
+                    isCzar={true}
+                  />
+                ) : isSpectator ? (
+                  // --- SPECTATOR VIEW (Mobile) ---
+                  <p>You are spectating.</p>
+                ) : (
+                  // --- REGULAR PLAYER'S HAND (Mobile) ---
+                  <>
+                    <PlayerHand
+                      hand={localHand}
+                      isMobile={false} // Use false to show all cards
+                      isCzar={false}
+                      hasSubmitted={hasSubmitted}
+                      selectedCards={selectedCards}
+                      onSelectCard={handleSelectCard}
+                      imageSubmitterProps={{ imageCreationsLeft, isUploading: isValidating }}
+                      onDeleteImageCard={handleDeleteImageCard}
+                      onImageUpload={uploadImage}
+                    />
+                    {canConfirmSubmission && !hasSubmitted && (
+                      <button className="submit-button" onClick={handleConfirmSubmission}>
+                        Confirm Submission
+                      </button>
+                    )}
+                    {hasSubmitted && <p>You submitted your card(s)!</p>}
+                  </>
+                )}
               </div>
             )}
           </div>

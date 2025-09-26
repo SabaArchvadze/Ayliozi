@@ -101,7 +101,7 @@ export function Home({ error, setError }) {
         className="title-image"
         variants={titleVariants}
       />
-
+      <p className="error-message">{error}</p>
       <motion.div className="home-container" variants={formVariants}>
         <input
           type="text"
@@ -128,7 +128,6 @@ export function Home({ error, setError }) {
           </div>
         </div>
       </motion.div>
-      <p className="error-message">{error}</p>
 
       <button className="report-button" onClick={() => setShowReportModal(true)} title="Report a Bug">
         <VscReport />

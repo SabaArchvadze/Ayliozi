@@ -2,23 +2,25 @@ import { FaTimes } from "react-icons/fa";
 
 export function KickPlayerModal({ players, ownerId, onKick, onClose }) {
   return (
-      <div className="confirmation-box kick-modal">
-        <h3>Kick a Player</h3>
-        <ul className="kick-player-list">
-          {players.map(player => (
-            player.playerId !== ownerId && (
-              <li key={player.playerId}>
-                <span>{player.username}</span>
-                <button className="kick-button-in-modal" onClick={() => onKick(player.playerId)}>
-                  <FaTimes />
-                </button>
-              </li>
-            )
-          ))}
-        </ul>
-        <div className="confirmation-buttons">
-          <button onClick={onClose}>X</button>
-        </div>
+    <div className="confirmation-box kick-modal">
+      <h3>Kick a Player</h3>
+      <ul className="kick-player-list">
+        {players.map(player => (
+          player.playerId !== ownerId && (
+            <li key={player.playerId}>
+              <span>{player.username}</span>
+              <button className="kick-button-in-modal" onClick={() => onKick(player.playerId)}>
+                <FaTimes />
+              </button>
+            </li>
+          )
+        ))}
+      </ul>
+      <div className="confirmation-buttons">
+        <button onClick={onClose}>
+          <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 352 512" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"></path></svg>
+        </button>
       </div>
+    </div>
   );
 }

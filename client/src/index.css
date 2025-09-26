@@ -637,7 +637,6 @@ button:disabled {
   color: #E53935;
   /* Use the same red as our button glow */
   font-weight: 500;
-  margin-top: 20px;
   height: 20px;
   /* Reserve space to prevent layout shifts */
 }
@@ -1059,9 +1058,11 @@ button.card.image-card img {
 }
 
 .confirmation-buttons {
-  position: absolute;
-  top:0;
-  right:18%
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 25px;
+  /* Adds some space above the buttons */
 }
 
 .report-button {
@@ -1317,6 +1318,10 @@ button.card.image-card img {
   width: 50px;
   height: 50px;
   border-radius: 50%;
+  background-color: rgba(30, 30, 30, 0.8);
+  border: 1px solid rgba(80, 80, 80, 0.9);
+  backdrop-filter: blur(5px);
+  color: var(--icon-color);
   font-size: 1.3em;
   padding: 0;
   display: flex;
@@ -1343,7 +1348,7 @@ button.card.image-card img {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width:100%;
+  width: 100%;
   font-size: 1.2em;
   padding: 10px;
   border-bottom: 1px solid var(--border-color);
@@ -1669,15 +1674,44 @@ button.card.image-card img {
   width: 100%;
 }
 
-/* This positions the button on top of the layout, not inside it */
+@keyframes moveGradient {
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* 2. The single, powerful style for the submit button */
 .submit-button {
+  /* Your existing absolute positioning */
   position: absolute;
-  bottom: -50px;
+  bottom: -60px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
+
+  /* Your existing text and size styles */
   padding: 12px 25px;
   font-size: 1.1em;
+  color: white;
+  border-radius: 50px;
+
+  /* --- THIS IS THE NEW TECHNIQUE --- */
+
+  /* 1. Create a transparent border to make space for the gradient */
+  border: 2px solid transparent;
+
+  /* 2. Create the two background layers */
+  background:
+    /* Top Layer: Solid color, clipped to the inside (padding-box) */
+    linear-gradient(var(--surface-color), var(--surface-color)) padding-box,
+    /* Bottom Layer: Animated gradient, fills the whole area (border-box) */
+    linear-gradient(60deg, hsl(260, 85%, 66%), hsl(280, 85%, 66%), hsl(320, 85%, 66%), hsl(280, 85%, 66%), hsl(260, 85%, 66%)) border-box;
+
+  /* 3. Set up the gradient's size for animation */
+  background-size: 300% 300%;
+
+  /* 4. Apply the animation */
+  animation: moveGradient 4s alternate infinite;
 }
 
 .mobile-action-buttons {
@@ -1717,12 +1751,18 @@ button.card.image-card img {
     top: 50%;
   }
 
-  .mobile-overlay-container button {
+  .mobile-overlay-container>button,
+  .game-info-display button,
+  .kick-modal>.confirmation-buttons button {
     position: absolute;
     top: 4%;
     right: 23%;
     background: none;
     font-size: 1.3em;
+  }
+
+  .kick-modal>.confirmation-buttons button {
+    right: 32%;
   }
 
   .game-sidebar {
@@ -1769,15 +1809,15 @@ button.card.image-card img {
 
   .overlay-spotlight {
     position: absolute;
-    top: -150px;
-    left: -200px;
-    width: calc(100% + 1000px);
-    height: calc(100% + 400px);
+    top: -250px;
+    left: -300px;
+    width: 1800px;
+    height: 800px;
     opacity: 0.1;
     pointer-events: none;
   }
 
-  .spotlight-svg{
+  .spotlight-svg {
     animation: spotlight 0.3s ease-out forwards;
   }
 
@@ -1806,7 +1846,77 @@ button.card.image-card img {
     bottom: 15px;
     left: 15px;
     z-index: 50;
-    gap: 10px;
+
+    /* Adjusted for the new look */
+    background-color: rgba(30, 30, 30, 0.8);
+    border: 1px solid rgba(80, 80, 80, 0.9);
+    border-radius: 22px;
+    /* Made slightly less round for a thinner bar */
+    padding: 2px;
+    /* Reduced padding */
+    backdrop-filter: blur(5px);
+  }
+
+  /* This styles the individual buttons inside the bar */
+  .mobile-action-buttons button {
+    background: transparent;
+    border: none;
+    color: var(--icon-color);
+    width: 60px;
+    /* WIDER: Increased from 50px to make it longer */
+    height: 40px;
+    /* THINNER: Decreased from 45px */
+    border-radius: 25px;
+    font-size: 1.4em;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  .mobile-action-buttons button::before {
+    background: none;
+    background: var(--accent-color);
+  }
+
+  /* The rule for the border-right divider has been REMOVED. */
+
+  /* Give the buttons a nice hover/active effect */
+  .mobile-action-buttons button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+  }
+
+  /* This targets the scoreboard ONLY when it's inside our mobile overlay */
+  .mobile-overlay-container .scoreboard li {
+    /* This creates 4 columns: Rank | Icon | Name | Score */
+    grid-template-columns: auto 20px 1fr auto;
+    gap: 8px;
+    /* Adjust the space between columns */
+  }
+
+  /* Ensure the icon container fits in its new 20px column */
+  .mobile-overlay-container .player-status-icons {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Remove any extra margin from the icons themselves */
+  .mobile-overlay-container .czar-icon,
+  .mobile-overlay-container .submitted-icon {
+    margin-right: 0;
+  }
+
+  .setting-item span:last-child {
+    margin-right: 6%;
+  }
+
+  .kick-player-list li>span {
+    flex-grow: 1;
+    /* Tells the name to take up all available empty space */
+    text-align: left;
+    /* Keeps the text of the name left-aligned */
   }
 }
 
@@ -1867,9 +1977,18 @@ button.card.image-card img {
   }
 
   .home-container {
-    padding: 20px;
-    width: 100%;
+    font-size: 13px;
+    padding: 5px;
+    padding-top: 5px;
+    width: 85%;
+    height: 51%;
+    margin-top: 5px;
     /* Make it take the full width of the padded parent */
+  }
+
+  .home-container > input {
+    width: 100%;
+    scale: 0.8;
   }
 
   /* Make the title text smaller if you decide to keep it */
@@ -1877,15 +1996,36 @@ button.card.image-card img {
     font-size: 2em;
   }
 
+  .confirmation-box {
+    max-width: 340px;
+    font-size: 15px;
+    max-height: 50%;
+  }
+
+  .confirmation-box .confirmation-buttons {
+    margin-top: 0;
+  }
+
+  .error-message {
+    font-size: 12px;
+    padding-top: 20px;
+    padding-bottom: 30px;
+    height: 20px;
+  }
+
   .home-actions {
     flex-direction: column;
-    gap: 15px;
-    /* Reduce the gap between the two boxes */
+    gap: 0px;
+    width:100%;
+    margin-top: 0;
   }
 
   .home-box {
-    padding: 15px;
-    /* Slightly reduce padding inside the boxes */
+    padding: 10px;
+    margin: 0;
+    flex: 0;
+    width:100%;
+    scale:0.8;
   }
 
   .home-box h4 {
@@ -1894,17 +2034,17 @@ button.card.image-card img {
   }
 
   .title-image {
-    width: 100%;
+    width: 115%;
     /* Let it fill the padded container width */
-    max-width: 400px;
-    margin-bottom: 20px;
+    max-width: 500px;
+    margin-top: 10px;
     /* Adjust spacing */
   }
 
   /* Make the report button smaller and give it a bit more space */
   .report-button {
-    width: 40px;
-    height: 40px;
+    width: 50px;
+    height: 50px;
     font-size: 1.2em;
     bottom: 15px;
     left: 15px;
@@ -1953,7 +2093,7 @@ button.card.image-card img {
   .lobby-grid-container {
     height: auto;
     padding: 0;
-    padding-top: 60px;
+    padding-top: 50px;
     /* Make space for the back button */
 
     /* Your original, correct mobile layout: */
@@ -1967,6 +2107,7 @@ button.card.image-card img {
       "card-counts card-counts";
     gap: 15px;
   }
+
 
   /* 3. Clean up the main UI boxes and assign them to their grid areas */
   .lobby-container,
@@ -1984,6 +2125,9 @@ button.card.image-card img {
     grid-area: details;
     flex-direction: column;
     gap: 20px;
+    width: 90%;
+    font-size: 14px;
+    margin-left: 5%;
   }
 
   .lobby-players {
@@ -1993,8 +2137,13 @@ button.card.image-card img {
   }
 
   .chat-container {
-    height: 300px;
+    height: 250px;
     grid-area: chat;
+    width: 90%;
+  }
+
+  .back-button {
+    top: 5px;
   }
 
   /* 4. Position the card counts at the bottom of the new grid */
@@ -2002,7 +2151,7 @@ button.card.image-card img {
     grid-area: card-counts;
     position: static;
     /* Un-stick it from the bottom of the screen */
-    padding: 15px 0;
+    padding: 15px 20px;
     pointer-events: auto;
   }
 
@@ -2099,11 +2248,11 @@ button.card.image-card img {
     top: 0;
     left: 0;
     width: 100%;
-    height: 100vh;
+    height: 130vh;
     pointer-events: none;
     z-index: 1;
     background-color: rgba(0, 0, 0, 0.9);
-    mask-image: radial-gradient(ellipse 70% 45% at 50% 45%,
+    mask-image: radial-gradient(ellipse 80% 45% at 50% 45%,
         transparent 50%,
         black 90%);
   }
