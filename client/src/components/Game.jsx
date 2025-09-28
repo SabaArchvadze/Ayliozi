@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { socket } from '../socket';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-import { FaCrown, FaTimes, FaUserSlash } from 'react-icons/fa';
-import { IoChatbubblesSharp, IoInformationCircleSharp, IoArrowBack, IoArrowBackCircle, IoArrowForwardCircle } from "react-icons/io5";
+import {FaTimes, FaUserSlash } from 'react-icons/fa';
+import {IoArrowBack, IoArrowBackCircle, IoArrowForwardCircle } from "react-icons/io5";
 import { CountdownTimer } from './CountdownTimer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { InGameChat } from './InGameChat';
@@ -67,10 +67,12 @@ function GameNotification({ message }) {
 
 export function Game(props) {
 
-  const { roomData, myId, roundWinnerInfo, firstCardPlayed, notification, messages, setError, setShowKickModal } = props;
+ const { roomData, myId, roundWinnerInfo, firstCardPlayed, notification, messages, setError, setShowKickModal } = props;
+
   const { roomCode, currentCzar, currentPrompt, players, revealedSubmissions, submissions = [], phase, settings } = roomData;
 
   const isMobile = useMediaQuery('(max-width: 1023px)');
+
 
   const me = players.find(p => p.socketId === myId);
   const owner = players ? players[0] : null;
@@ -85,7 +87,7 @@ export function Game(props) {
   const [imageCreationsLeft, setImageCreationsLeft] = useState(3);
   const [isValidating, setIsValidating] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
-  const [activeTab, setActiveTab] = useState('scores');
+  const [[submissionPage, submissionDirection], setSubmissionPage] = useState([0, 0]);
 
 
   const handleDeleteImageCard = useCallback((cardId) => {
@@ -167,6 +169,22 @@ export function Game(props) {
     setSelectedCards([]);
     setImageCreationsLeft(3);
   }, [currentPrompt, me]);
+
+  useEffect(() => {
+    // This effect only runs during the reveal phase on mobile
+    if (isMobile && (phase === 'revealing' || phase === 'judging')) {
+      const submissionsPerPage = 6;
+      // Calculate which page the newest revealed card is on
+      const newCardIndex = revealedSubmissions.length - 1;
+      const targetPage = Math.floor(newCardIndex / submissionsPerPage);
+
+      // If we are not on that page, go to it
+      if (targetPage >= 0 && targetPage !== submissionPage) {
+        // Determine direction for the animation (always forward for reveals)
+        setSubmissionPage([targetPage, 1]);
+      }
+    }
+  }, [revealedSubmissions.length, isMobile, phase]);
 
   const handleSelectCard = (card) => {
     if (selectedCards.some(sc => sc.id === card.id)) {
@@ -329,21 +347,72 @@ export function Game(props) {
             <p>უსტაბაში: <strong>{currentCzar?.username || '...'}</strong></p>
           </div>
           <div className="mobile-main-area">
-            {(phase === 'revealing' || phase === 'judging') && (
-              <div className="revealed-cards-container">
-                <h4>Submissions:</h4>
-                <div className="card-container revealed-cards-area">
-                  {revealedSubmissions.map((submission) => (
-                    <div key={submission.playerId} className={`submission-group ${isCzar ? 'czar-view' : ''}`} onClick={() => isCzar && phase === 'judging' && handleSelectWinner(submission)}>
-                      {submission.cards.map((card) => (
-                        <div key={card.id} className="card revealed-card">{card.type === 'image' ? <img src={card.content} alt="Submitted Card" /> : card.text}</div>
-                      ))}
-                    </div>
-                  ))}
-                  {isCzar && phase === 'revealing' && <div className="card-deck" onClick={handleRevealNextCard}>Reveal Next</div>}
+            {(phase === 'revealing' || phase === 'judging') && (() => {
+              // --- PAGINATION LOGIC ---
+              const submissionsPerPage = 6;
+              const totalSubmissionPages = Math.ceil(revealedSubmissions.length / submissionsPerPage);
+
+              const paginateSubmissions = (newDirection) => {
+                const newPage = submissionPage + newDirection;
+                // This makes the pagination loop around
+                const newCurrentPage = (newPage + totalSubmissionPages) % totalSubmissionPages;
+                setSubmissionPage([newCurrentPage, newDirection]);
+              };
+
+              const paginatedSubmissions = revealedSubmissions.slice(
+                submissionPage * submissionsPerPage,
+                (submissionPage + 1) * submissionsPerPage
+              );
+
+              // --- "FROZEN" SCALING LOGIC ---
+              // We tell the CSS to calculate the scale based on a max of 6 cards.
+              const displayCountForScaling = Math.min(revealedSubmissions.length, 6);
+
+              // Animation variants for the sliding effect
+              const slideVariants = {
+                enter: (direction) => ({ x: direction > 0 ? '100%' : '-100%', opacity: 0 }),
+                center: { zIndex: 1, x: 0, opacity: 1 },
+                exit: (direction) => ({ zIndex: 0, x: direction < 0 ? '100%' : '-100%', opacity: 0 }),
+              };
+
+              return (
+                <div className="revealed-cards-container">
+                  <h4>Submissions:</h4>
+                  <div className="submission-pagination">
+                    {totalSubmissionPages > 1 && <button onClick={() => paginateSubmissions(-1)} className="page-arrow left"><IoArrowBackCircle /></button>}
+
+                    <AnimatePresence initial={false} custom={submissionDirection} mode="wait">
+                      <motion.div
+                        key={submissionPage}
+                        className="card-container revealed-cards-area"
+                        style={{ '--submission-count': displayCountForScaling }} // This freezes the scale
+                        custom={submissionDirection}
+                        variants={slideVariants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        transition={{ x: { type: "spring", stiffness: 300, damping: 25 }, opacity: { duration: 0.2 } }}
+                      >
+                        {paginatedSubmissions.map((submission) => (
+                          <div key={submission.playerId} className={`submission-group ${isCzar ? 'czar-view' : ''}`} onClick={() => isCzar && phase === 'judging' && handleSelectWinner(submission)}>
+                            {submission.cards.map((card) => (
+                              <div key={card.id} className="card revealed-card">{card.type === 'image' ? <img src={card.content} alt="Submitted Card" /> : card.text}</div>
+                            ))}
+                          </div>
+                        ))}
+                      </motion.div>
+                    </AnimatePresence>
+
+                    {totalSubmissionPages > 1 && <button onClick={() => paginateSubmissions(1)} className="page-arrow right"><IoArrowForwardCircle /></button>}
+                  </div>
+
+                  {/* Show Reveal Next button only if there are more cards on other pages */}
+                  {isCzar && phase === 'revealing' && revealedSubmissions.length < submissions.length && (
+                    <div className="card-deck" onClick={handleRevealNextCard}>Reveal Next</div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
             {phase === 'submitting' && (
               <div className="player-hand-container">
                 <h4>Your Hand:</h4>

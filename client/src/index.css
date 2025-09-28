@@ -41,6 +41,7 @@ body {
 }
 
 .game-layout {
+  overflow: hidden;
   display: flex;
   gap: 20px;
   align-items: flex-start;
@@ -556,6 +557,7 @@ button:disabled {
   background-color: var(--surface-color);
   padding: 40px;
   border-radius: 16px;
+  font-size: 18px;
   border: 1px solid var(--border-color);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   width: 100%;
@@ -683,6 +685,7 @@ button:disabled {
   text-align: left;
   display: flex;
   /* This creates the two columns inside */
+  font-size: 18px;
   gap: 40px;
 }
 
@@ -706,6 +709,7 @@ button:disabled {
   border-radius: 16px;
   border: 1px solid var(--border-color);
   height: 100%;
+  font-size: 22px;
   display: flex;
   flex-direction: column;
 }
@@ -1047,9 +1051,10 @@ button.card.image-card img {
   background-color: var(--surface-color);
   padding: 30px 40px;
   border-radius: 12px;
+  font-size: 16px;
   border: 1px solid var(--border-color);
   text-align: center;
-  max-width: 400px;
+  max-width: 450px;
 }
 
 .confirmation-box p {
@@ -1718,7 +1723,15 @@ button.card.image-card img {
   display: none;
 }
 
+
+
 @media (max-width: 1023px) and (orientation: landscape) {
+
+  .revealed-cards-container > h4{
+    position: absolute;
+    top:20px;
+    left:56%;
+  }
 
   /* --- Main Layout: Horizontal with two columns --- */
   .game-layout {
@@ -1756,13 +1769,14 @@ button.card.image-card img {
   .kick-modal>.confirmation-buttons button {
     position: absolute;
     top: 4%;
-    right: 23%;
+    right: 18%;
     background: none;
     font-size: 1.3em;
   }
 
   .kick-modal>.confirmation-buttons button {
-    right: 32%;
+    right: 28%;
+    font-size: 1.6em;
   }
 
   .game-sidebar {
@@ -1837,6 +1851,23 @@ button.card.image-card img {
   .revealed-cards-area .card,
   .revealed-cards-area .card-deck {
     transform: scale(0.9);
+  }
+
+  .revealed-cards-area {
+  display: grid;
+  
+  /* THIS IS THE KEY CHANGE: Explicitly create 3 equal-width columns */
+  grid-template-columns: repeat(3, 1fr);
+}
+
+  .revealed-card{
+    padding: 5px 0;
+  }
+
+  .revealed-card > img {
+    width:100%;
+    object-fit:contain;
+    height:100%;
   }
 
   /* --- Button Visibility --- */
@@ -1917,6 +1948,16 @@ button.card.image-card img {
     /* Tells the name to take up all available empty space */
     text-align: left;
     /* Keeps the text of the name left-aligned */
+  }
+}
+
+@media (max-width: 820px) and (orientation: landscape) {
+  .card-container {
+    scale: 80%;
+  }
+
+  .submit-button {
+    bottom: -15px;
   }
 }
 
@@ -2283,9 +2324,7 @@ button.card.image-card img {
     overflow-x: hidden;
   }
 
-  .game-layout {
-    flex-direction: column;
-  }
+  
 
   /* On mobile, HIDE the original chat and info components in the sidebar */
   .game-sidebar .in-game-chat,
@@ -2330,4 +2369,43 @@ button.card.image-card img {
     font-size: 5em;
     margin-bottom: 1rem;
   }
+}
+
+/* ===================================== */
+/* === SUBMISSION PAGINATION STYLES === */
+/* ===================================== */
+
+.submission-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 90%;
+  margin-left: 10px;
+  margin-top: 15px;
+  flex-grow: 1;
+  overflow: hidden; /* Prevent cards from spilling during animation */
+}
+
+.submission-pagination .card-container {
+  width: 80%;
+  scale:0.7;
+  flex-grow: 1;
+}
+
+.submission-pagination .page-arrow {
+  background: none;
+  border: none;
+  font-size: 2.5em;
+  color: var(--icon-color);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s, transform 0.2s;
+  z-index: 10;
+}
+.page-arrow::before{
+  background: none;
+}
+.submission-pagination .page-arrow:hover {
+  color: var(--text-color);
+  transform: scale(1.1);
 }
