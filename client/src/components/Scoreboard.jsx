@@ -1,6 +1,6 @@
 import { FaCrown, FaCheck } from 'react-icons/fa';
 
-export function Scoreboard({ players, czarId, submissions = [], myId }) {
+export function Scoreboard({ players, czarId, submissions = [], myId, isMobile }) {
   // 1. We always start by sorting all players by score.
   const rankedPlayers = [...players].sort((a, b) => b.score - a.score);
 
@@ -13,7 +13,7 @@ export function Scoreboard({ players, czarId, submissions = [], myId }) {
   }
 
   // 3. For large games, we need to split the players into two columns.
-  const isLargeGame = players.length >= 7;
+  const isLargeGame = players.length >= 7 && !isMobile;
   const halfwayPoint = Math.ceil(rankedPlayers.length / 2);
   const leftColumnPlayers = isLargeGame ? rankedPlayers.slice(0, halfwayPoint) : [];
   const rightColumnPlayers = isLargeGame ? rankedPlayers.slice(halfwayPoint) : [];

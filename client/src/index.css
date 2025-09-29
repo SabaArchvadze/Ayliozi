@@ -41,7 +41,6 @@ body {
 }
 
 .game-layout {
-  overflow: hidden;
   display: flex;
   gap: 20px;
   align-items: flex-start;
@@ -493,11 +492,13 @@ button:disabled {
   display: flex;
   justify-content: center;
   align-items: center;
-  border-radius: 50%;
   transition: all 0.2s;
-  width: 30px;
-  /* Match the column width */
+  width: 40px;
   height: 30px;
+}
+
+.kick-button::before{
+  border-radius: 0;
 }
 
 .kick-button:hover {
@@ -505,6 +506,7 @@ button:disabled {
   background-color: var(--accent-color);
   transform: scale(1.1);
 }
+
 
 .skip-button {
   position: absolute;
@@ -557,7 +559,6 @@ button:disabled {
   background-color: var(--surface-color);
   padding: 40px;
   border-radius: 16px;
-  font-size: 18px;
   border: 1px solid var(--border-color);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   width: 100%;
@@ -709,7 +710,7 @@ button:disabled {
   border-radius: 16px;
   border: 1px solid var(--border-color);
   height: 100%;
-  font-size: 22px;
+  font-size: 18px;
   display: flex;
   flex-direction: column;
 }
@@ -741,8 +742,12 @@ button:disabled {
   /* Adjust line height for better spacing */
 }
 
+.settings-modal button{
+  margin-top: 10px;
+}
+
 .settings-group {
-  margin-bottom: 25px;
+  margin-bottom: 8px;
 }
 
 .settings-group label {
@@ -794,6 +799,12 @@ button:disabled {
   background: none;
 }
 
+.player-list {
+  max-height: 280px; /* Allows about 6-7 players to be visible by default */
+  overflow-y: auto;  /* Adds a scrollbar ONLY if the content overflows */
+  padding-right: 10px; /* Adds a little space for the scrollbar to sit in */
+}
+
 .player-list h4 {
   margin-bottom: 15px;
 }
@@ -835,11 +846,101 @@ button:disabled {
   width: 90%;
 }
 
+.player-list-modal .kick-player-list {
+  max-height: 30vh; /* Allows the list to take up to half the device's screen height */
+  overflow-y: auto; /* Adds a scrollbar ONLY if needed */
+  padding-right: 10px; /* Adds space for the scrollbar */
+}
+
+.mobile-overlay-container {
+    width: 100%;
+    position: relative;
+    top: 25%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+  }
+
+  .kick-modal>.confirmation-buttons button {
+    position: absolute;
+    top: 4%;
+    right: 42%;
+    background: none;
+    font-size: 1.3em;
+    border-radius: 0;
+  }
+
+  .kick-modal>.confirmation-buttons button::before{
+    background: none;
+  }
+
+  .overlay-backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 99;
+    backdrop-filter: blur(4px);
+  }
+
+  .mobile-overlay-container .kick-modal > .kick-player-list{
+    height:220px;
+    overflow-y: auto;
+  }
+
+.player-list,
+.player-list-modal .kick-player-list,
+.mobile-overlay-container .scoreboard ul,
+.mobile-overlay-container .kick-player-list { /* <-- Added this selector */
+  /* --- For modern Firefox --- */
+  scrollbar-width: thin;
+  scrollbar-color: #3a393998 var(--surface-color);
+}
+
+/* The scrollbar track (the background) */
+.player-list::-webkit-scrollbar,
+.player-list-modal .kick-player-list::-webkit-scrollbar,
+.mobile-overlay-container .scoreboard ul::-webkit-scrollbar,
+.mobile-overlay-container .kick-player-list::-webkit-scrollbar { /* <-- And here */
+  width: 8px;
+}
+.player-list::-webkit-scrollbar-track,
+.player-list-modal .kick-player-list::-webkit-scrollbar-track,
+.mobile-overlay-container .scoreboard ul::-webkit-scrollbar-track,
+.mobile-overlay-container .kick-player-list::-webkit-scrollbar-track { /* <-- And here */
+  background: var(--surface-color);
+  border-radius: 4px;
+}
+
+/* The scrollbar thumb (the part you drag) */
+.player-list::-webkit-scrollbar-thumb,
+.player-list-modal .kick-player-list::-webkit-scrollbar-thumb,
+.mobile-overlay-container .scoreboard ul::-webkit-scrollbar-thumb,
+.mobile-overlay-container .kick-player-list::-webkit-scrollbar-thumb { /* <-- And here */
+  background-color: #3a393998;
+  border-radius: 4px;
+  border: 2px solid var(--surface-color);
+}
+
+.player-list::-webkit-scrollbar-thumb:hover,
+.player-list-modal .kick-player-list::-webkit-scrollbar-thumb:hover,
+.mobile-overlay-container .scoreboard ul::-webkit-scrollbar-thumb:hover,
+.mobile-overlay-container .kick-player-list::-webkit-scrollbar-thumb:hover { /* <-- And here */
+  background-color: #3a3939;
+}
+
+.mobile-overlay-container .kick-player-list {
+  /* Allow the list to take up to half the screen height before scrolling */
+  max-height: 32vh; 
+  overflow-y: auto; /* Adds a scrollbar ONLY if the list is too long */
+  padding-right: 10px; /* Adds space for the scrollbar */
+}
+
 /* --- You can also reuse these styles from the in-game modal --- */
 .kick-player-list {
   list-style-type: none;
   padding: 0;
-  margin: 20px 0;
+  margin: 10px 0;
   text-align: left;
 }
 
@@ -898,23 +999,6 @@ button:disabled {
   align-items: center;
 }
 
-.kick-button {
-  background: none;
-  border: none;
-  color: #888;
-  padding: 5px;
-  margin-left: 5px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  border-radius: 50%;
-  transition: all 0.2s;
-}
-
-.kick-button:hover {
-  color: white;
-  transform: scale(1.1);
-}
 
 .game-sidebar {
   display: flex;
@@ -1340,14 +1424,6 @@ button.card.image-card img {
   width: 90%;
   max-width: 350px;
 }
-
-.kick-player-list {
-  list-style-type: none;
-  padding: 0;
-  margin: 20px 0;
-  text-align: left;
-}
-
 .kick-player-list li {
   position: relative;
   display: flex;
@@ -1355,8 +1431,11 @@ button.card.image-card img {
   align-items: center;
   width: 100%;
   font-size: 1.2em;
-  padding: 10px;
   border-bottom: 1px solid var(--border-color);
+}
+
+.kick-modal h3{
+  margin: 0px;
 }
 
 .kick-player-list li:last-child {
@@ -1369,7 +1448,8 @@ button.card.image-card img {
   color: white;
   width: 45px;
   height: 45px;
-  border-radius: 50%;
+  margin: 5px 0;
+  border-radius: 30%;
   font-size: 0.8em;
   display: flex;
   align-items: center;
@@ -1777,6 +1857,7 @@ button.card.image-card img {
   .kick-modal>.confirmation-buttons button {
     right: 28%;
     font-size: 1.6em;
+    background: none;
   }
 
   .game-sidebar {
@@ -1926,6 +2007,15 @@ button.card.image-card img {
     gap: 8px;
     /* Adjust the space between columns */
   }
+
+  .mobile-overlay-container .scoreboard ul {
+  /* Allow about 4-5 players before scrolling */
+  max-height: 150px;
+  /* Add a scrollbar ONLY if the content overflows */
+  overflow-y: auto;
+  /* Add space for the custom scrollbar */
+  padding-right: 10px;
+}
 
   /* Ensure the icon container fits in its new 20px column */
   .mobile-overlay-container .player-status-icons {

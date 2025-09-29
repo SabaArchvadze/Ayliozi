@@ -350,7 +350,7 @@ export default function App() {
                 >
                   <Spotlight className="overlay-spotlight" fill="white" />
                   <button onClick={() => handleOpenOverlay(null)}><FaTimes /></button>
-                  <Scoreboard players={gameData.players} czarId={gameData.currentCzar?.playerId} submissions={gameData.submissions} myId={myId} />
+                  <Scoreboard players={gameData.players} czarId={gameData.currentCzar?.playerId} submissions={gameData.submissions} myId={myId} isMobile={true} />
                 </motion.div>
               </>
             )}

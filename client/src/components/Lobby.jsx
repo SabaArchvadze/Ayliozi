@@ -9,6 +9,34 @@ import { FaCog, FaUsers, FaTimes } from 'react-icons/fa';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
 function SettingsModal({ settings, isOwner, onSettingsChange, onClose }) {
+  // --- NEW: Add local state and a ref for the debounce timer ---
+  const [localSettings, setLocalSettings] = useState(settings);
+  const debounceTimeout = useRef(null);
+
+  // --- NEW: A simple effect to sync with server updates ---
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
+
+  // --- NEW: The handler that provides instant feedback and debounces the server update ---
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    // Instantly update what the user sees
+    setLocalSettings(prev => ({ ...prev, [name]: value }));
+
+    // Clear any previous timer
+    clearTimeout(debounceTimeout.current);
+
+    // Set a timer to send the update to the server after 800ms of inactivity
+    debounceTimeout.current = setTimeout(() => {
+      // Only send if the value is not empty
+      if (value.trim() !== '') {
+        onSettingsChange({ target: { name, value: parseInt(value, 10) } });
+      }
+    }, 800);
+  };
+
   return (
     <div className="confirmation-overlay">
       <div className="confirmation-box settings-modal">
@@ -20,8 +48,8 @@ function SettingsModal({ settings, isOwner, onSettingsChange, onClose }) {
               type="number"
               name="pointsToWin"
               id="pointsToWin"
-              value={settings?.pointsToWin || 5}
-              onChange={onSettingsChange}
+              value={localSettings?.pointsToWin || ''} // Use local state
+              onChange={handleChange}                 // Use our new handler
               disabled={!isOwner}
               min="3"
               max="20"
@@ -33,8 +61,8 @@ function SettingsModal({ settings, isOwner, onSettingsChange, onClose }) {
               type="number"
               name="maxPlayers"
               id="maxPlayers"
-              value={settings?.maxPlayers || 8}
-              onChange={onSettingsChange}
+              value={localSettings?.maxPlayers || ''} // Use local state
+              onChange={handleChange}                  // Use our new handler
               disabled={!isOwner}
               min="3"
               max="12"
@@ -46,8 +74,8 @@ function SettingsModal({ settings, isOwner, onSettingsChange, onClose }) {
               type="number"
               name="handSize"
               id="handSize"
-              value={settings?.handSize || 10}
-              onChange={onSettingsChange}
+              value={localSettings?.handSize || ''} // Use local state
+              onChange={handleChange}                  // Use our new handler
               disabled={!isOwner}
               min="5"
               max="15"
@@ -89,6 +117,7 @@ function PlayerListModal({ players, isOwner, myId, onKick, onClose }) {
 }
 
 export function Lobby(props) {
+
   const { roomData, myId, messages } = props;
   const { roomCode, players, settings } = roomData;
   const isOwner = myId === players[0]?.socketId;
@@ -98,6 +127,13 @@ export function Lobby(props) {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
+
+  const [localSettings, setLocalSettings] = useState(settings);
+  const debounceTimeout = useRef(null);
+
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
 
 
   useEffect(() => {
@@ -114,6 +150,26 @@ export function Lobby(props) {
       roomCode,
       newSettings: { [e.target.name]: parseInt(e.target.value, 10) } // Removed {...settings, ...}
     });
+  };
+
+  const handleDesktopChange = (e) => {
+    const { name, value } = e.target;
+    setLocalSettings(prev => ({ ...prev, [name]: value }));
+
+    clearTimeout(debounceTimeout.current);
+
+    debounceTimeout.current = setTimeout(() => {
+      if (value.trim() !== '') {
+        handleSettingsChange({ target: { name, value: parseInt(value, 10) } });
+      }
+    }, 800);
+  };
+
+  const handleDesktopBlur = (e) => {
+    const { name, value } = e.target;
+    if (value === '' || isNaN(parseInt(value, 10))) {
+      setLocalSettings(prev => ({ ...prev, [name]: settings[name] }));
+    }
   };
 
   const handleLeaveLobby = () => {
@@ -190,8 +246,9 @@ export function Lobby(props) {
                     type="number"
                     name="pointsToWin"
                     id="pointsToWin"
-                    value={settings?.pointsToWin || 5}
-                    onChange={handleSettingsChange}
+                    value={localSettings?.pointsToWin || ''}
+                    onChange={handleDesktopChange}
+                    onBlur={handleDesktopBlur}
                     disabled={!isOwner}
                     min="3" max="20"
                   />
@@ -202,8 +259,9 @@ export function Lobby(props) {
                     type="number"
                     name="maxPlayers"
                     id="maxPlayers"
-                    value={settings?.maxPlayers || 8}
-                    onChange={handleSettingsChange}
+                    value={localSettings?.maxPlayers || ''}
+                    onChange={handleDesktopChange}
+                    onBlur={handleDesktopBlur}
                     disabled={!isOwner}
                     min="3" max="12"
                   />
@@ -214,8 +272,9 @@ export function Lobby(props) {
                     type="number"
                     name="handSize"
                     id="handSize"
-                    value={settings?.handSize || 10}
-                    onChange={handleSettingsChange}
+                    value={localSettings?.handSize || ''}
+                    onChange={handleDesktopChange}
+                    onBlur={handleDesktopBlur}
                     disabled={!isOwner}
                     min="5" max="15"
                   />
@@ -242,10 +301,10 @@ export function Lobby(props) {
               <div className="player-list">
                 <h4>Players ({players.length})</h4>
                 <ul>
-                  {players.map((player) => (
+                  {players.map((player, index) => (
                     <li key={player.playerId}>
                       <span className="player-name">{player.username}</span>
-                      {isOwner && myId !== player.playerId && (
+                      {isOwner && index !== 0 && (
                         <button className="kick-button" onClick={() => handleKickPlayer(player.playerId)}>Kick</button>
                       )}
                     </li>

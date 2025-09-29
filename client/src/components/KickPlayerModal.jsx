@@ -1,4 +1,3 @@
-import { FaTimes } from "react-icons/fa";
 
 export function KickPlayerModal({ players, ownerId, onKick, onClose }) {
   return (
@@ -10,7 +9,7 @@ export function KickPlayerModal({ players, ownerId, onKick, onClose }) {
             <li key={player.playerId}>
               <span>{player.username}</span>
               <button className="kick-button-in-modal" onClick={() => onKick(player.playerId)}>
-                <FaTimes />
+                Kick
               </button>
             </li>
           )
