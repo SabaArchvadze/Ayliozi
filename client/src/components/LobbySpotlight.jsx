@@ -1,8 +1,8 @@
-import React from "react";
+import React, {memo} from "react";
 import { motion } from "framer-motion"; // Use framer-motion
 
 // Translated from TypeScript to JavaScript with default props
-export function LobbySpotlight({
+const LobbySpotlightComponent = ({
   gradientFirst = "radial-gradient(68.54% 68.72% at 55.02% 31.46%, hsla(240, 52%, 95%, 0.10) 0, hsla(240, 50%, 75%, .02) 50%, hsla(240, 50%, 65%, 0) 80%)",
   gradientSecond = "radial-gradient(50% 50% at 50% 50%, hsla(240, 52%, 95%, 0.18) 0, hsla(240, 50%, 75%, .02) 80%, transparent 100%)",
   gradientThird = "radial-gradient(50% 50% at 50% 50%, hsla(240, 52%, 95%, 0.23) 0, hsla(240, 50%, 65%, .02) 80%, transparent 100%)",
@@ -12,7 +12,7 @@ export function LobbySpotlight({
   smallWidth = 440,
   duration = 7,
   xOffset = 100,
-}) {
+}) => {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -44,3 +44,5 @@ export function LobbySpotlight({
     </motion.div>
   );
 };
+
+export const LobbySpotlight = memo(LobbySpotlightComponent);

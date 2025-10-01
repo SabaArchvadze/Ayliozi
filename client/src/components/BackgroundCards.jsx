@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect} from 'react';
 import prompts from '../../../server/prompts_ge.json';
 import answers from '../../../server/answers_ge.json';
 import { motion } from 'framer-motion';

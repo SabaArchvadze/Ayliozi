@@ -416,8 +416,6 @@ export function Game(props) {
             {phase === 'submitting' && (
               <div className="player-hand-container">
                 <h4>Your Hand:</h4>
-                <p className="error-message">{props.error}</p>
-
                 {/* --- THIS IS THE NEW, CORRECTED LOGIC --- */}
                 {isCzar ? (
                   // --- CZAR'S HAND (Mobile) ---

@@ -38,6 +38,7 @@ export function InGameChat({ roomCode, players, me, messages }) {
 
   return (
     <div className="in-game-chat">
+      <h4>Chat</h4>
       <div className="chat-messages" ref={chatContainerRef}>
         {messages.map((msg, index) => (
           <div key={index} className={msg.type === 'system' ? 'system-message' : 'player-message'}>

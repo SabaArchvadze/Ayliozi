@@ -1817,14 +1817,14 @@ button.card.image-card img {
   .game-layout {
     flex-direction: row;
     align-items: stretch;
-    height: 100vh;
+    height: 100svh;
     padding: 10px;
   }
 
   .mobile-overlay-container {
     width: 100%;
     position: relative;
-    top: 25%;
+    top: 10%;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1842,6 +1842,12 @@ button.card.image-card img {
     display: flex;
     justify-content: space-between;
     top: 50%;
+  }
+
+  .in-game-chat h4{
+    font-size: 1.2rem;
+    position: sticky;
+    margin-bottom: 0px;
   }
 
   .mobile-overlay-container>button,
@@ -1881,6 +1887,7 @@ button.card.image-card img {
     justify-content: center;
     align-items: center;
     gap: 0px;
+    margin-top: -70px;
   }
 
   .mobile-main-area {
@@ -1898,8 +1905,16 @@ button.card.image-card img {
     transform: scale(0.7);
   }
 
+  .mobile-prompt-area p{
+    margin-top: -20px;
+  }
+
   .player-hand-container .card-container {
     gap: 8px;
+  }
+
+  .player-hand-container h4{
+    margin-bottom: -25px;
   }
 
   .overlay-spotlight {
@@ -2426,7 +2441,6 @@ button.card.image-card img {
   .overlay-spotlight {
     position: absolute;
     top: 0;
-    left: 0;
     opacity: 0.15;
     pointer-events: none;
   }
