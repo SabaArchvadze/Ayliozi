@@ -88,7 +88,7 @@ export function Game(props) {
   const [isValidating, setIsValidating] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
   const [[submissionPage, submissionDirection], setSubmissionPage] = useState([0, 0]);
-
+  
 
   const handleDeleteImageCard = useCallback((cardId) => {
     setLocalHand(prevHand => prevHand.filter(card => card.id !== cardId));
@@ -421,7 +421,7 @@ export function Game(props) {
                   // --- CZAR'S HAND (Mobile) ---
                   <PlayerHand
                     hand={me?.hand}
-                    isMobile={false} // Use false to show all cards
+                    isMobile={true} // Use false to show all cards
                     isCzar={true}
                   />
                 ) : isSpectator ? (
@@ -432,7 +432,7 @@ export function Game(props) {
                   <>
                     <PlayerHand
                       hand={localHand}
-                      isMobile={false} // Use false to show all cards
+                      isMobile={true} // Use false to show all cards
                       isCzar={false}
                       hasSubmitted={hasSubmitted}
                       selectedCards={selectedCards}

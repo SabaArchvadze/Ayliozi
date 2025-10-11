@@ -1898,6 +1898,7 @@ button.card.image-card img {
     justify-content: center;
     align-items: center;
     min-width: 0;
+    margin-top:-60px;
   }
 
   /* --- Card Sizing --- */
@@ -2062,7 +2063,7 @@ button.card.image-card img {
   }
 
   .submit-button {
-    bottom: -15px;
+    bottom: -65px;
   }
 }
 
@@ -2512,4 +2513,54 @@ button.card.image-card img {
 .submission-pagination .page-arrow:hover {
   color: var(--text-color);
   transform: scale(1.1);
+}
+
+.hand-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex-grow: 1;
+  overflow: hidden; /* Prevent cards from spilling during animation */
+}
+
+.hand-pagination .card-container {
+  /* This ensures the card area takes up the available space between the arrows */
+  width: 100%;
+  flex-grow: 1;
+}
+
+.hand-pagination .page-arrow {
+  position: absolute;
+  background: none;
+  border: none;
+  font-size: 2.5em;
+  color: var(--icon-color);
+  cursor: pointer;
+  padding: 0;
+  margin: 20px;
+  transition: color 0.2s, transform 0.2s;
+  z-index: 10;
+}
+
+.page-arrow.left{
+  left:60px;
+}
+.page-arrow.right{
+  right:60px;
+}
+
+.hand-pagination .page-arrow:hover {
+  color: var(--text-color);
+  transform: scale(1.1);
+}
+
+.page-arrow::before {
+    background: none;
+}
+
+.page-indicator {
+  margin-top: -5px;
+  font-size: 0.9em;
+  color: var(--icon-color);
 }
